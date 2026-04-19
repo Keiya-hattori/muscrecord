@@ -45,7 +45,7 @@ export default function RootLayout({
   return (
     <html lang="ja">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} min-h-screen antialiased bg-zinc-50 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-50`}
+        className={`${geistSans.variable} ${geistMono.variable} min-h-screen antialiased overflow-x-hidden text-zinc-900 dark:text-zinc-50`}
       >
         <SerwistRegister>{children}</SerwistRegister>
       </body>

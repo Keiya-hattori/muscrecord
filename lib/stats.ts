@@ -1,3 +1,4 @@
+import { addDaysToDateKey, todayLocalDateKey } from "@/lib/dateKey";
 import { db } from "@/lib/db";
 import type { WorkoutSessionRow, WorkoutSetRow } from "@/lib/types";
 
@@ -121,7 +122,37 @@ export type GlobalAggregates = {
   totalSets: number;
   totalVolume: number;
   uniqueExerciseCount: number;
+  /** 1セッションあたりの平均ボリューム（kg） */
+  avgVolumePerSession: number;
+  /** 直近30日（今日含む）の合計ボリューム */
+  volumeLast30Days: number;
+  /** その前の30日間の合計ボリューム */
+  volumePrev30Days: number;
+  /** 直近30日のセッション数 */
+  sessionsLast30Days: number;
+  /** その前の30日のセッション数 */
+  sessionsPrev30Days: number;
+  /**
+   * 直近30日 vs 前30日のボリューム増減率（%）。前30日が0なら null
+   */
+  volumeGrowth30dPct: number | null;
 };
+
+function volumeAndSessionsInRange(
+  workouts: WorkoutWithVolume[],
+  fromInclusive: string,
+  toInclusive: string,
+): { volume: number; sessions: number } {
+  let volume = 0;
+  let sessions = 0;
+  for (const w of workouts) {
+    if (w.sessionDate >= fromInclusive && w.sessionDate <= toInclusive) {
+      volume += w.volume;
+      sessions++;
+    }
+  }
+  return { volume, sessions };
+}
 
 export async function computeGlobalAggregates(): Promise<GlobalAggregates> {
   const workouts = await loadAllWorkoutsWithVolume();
@@ -135,11 +166,33 @@ export async function computeGlobalAggregates(): Promise<GlobalAggregates> {
     }
   }
 
+  const today = todayLocalDateKey();
+  const fromLast30 = addDaysToDateKey(today, -29);
+  const toPrev30Start = addDaysToDateKey(today, -30);
+  const fromPrev30 = addDaysToDateKey(today, -59);
+
+  const last30 = volumeAndSessionsInRange(workouts, fromLast30, today);
+  const prev30 = volumeAndSessionsInRange(workouts, fromPrev30, toPrev30Start);
+
+  const volumeGrowth30dPct =
+    prev30.volume > 0
+      ? ((last30.volume - prev30.volume) / prev30.volume) * 100
+      : null;
+
+  const avgVolumePerSession =
+    totalWorkouts > 0 ? totalVolume / totalWorkouts : 0;
+
   return {
     totalWorkouts,
     totalSets,
     totalVolume,
     uniqueExerciseCount: ex.size,
+    avgVolumePerSession,
+    volumeLast30Days: last30.volume,
+    volumePrev30Days: prev30.volume,
+    sessionsLast30Days: last30.sessions,
+    sessionsPrev30Days: prev30.sessions,
+    volumeGrowth30dPct,
   };
 }
 

@@ -8,6 +8,9 @@ export default function SerwistRegisterProd({
 }: {
   children: React.ReactNode;
 }) {
+  if (process.env.NEXT_PUBLIC_GITHUB_PAGES === "true") {
+    return <>{children}</>;
+  }
   return (
     <SerwistProvider
       swUrl="/sw.js"
