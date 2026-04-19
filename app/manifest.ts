@@ -15,7 +15,8 @@ export default function manifest(): MetadataRoute.Manifest {
     description: "種目画像からワンタップ記録・LLMが今日のメニューを提案",
     start_url: "./",
     scope: "./",
-    display: "standalone",
+    /** standalone だとホーム画面から全画面起動になり環境によって不具合が出るため、通常の Safari 相当で開く */
+    display: "browser",
     background_color: "#fafafa",
     theme_color: "#2563eb",
     orientation: "portrait",

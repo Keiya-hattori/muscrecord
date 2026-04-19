@@ -275,7 +275,10 @@ export function SuggestClient() {
             <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-50">
               {suggestion.title ?? "今日の提案"}
             </h2>
-            <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-zinc-700 dark:text-zinc-300">
+            <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+              過去の記録から見た今日の狙い
+            </p>
+            <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-zinc-700 dark:text-zinc-300">
               {suggestion.summary}
             </p>
 
@@ -286,14 +289,14 @@ export function SuggestClient() {
               </p>
             )}
 
-            {suggestion.todayFocus && (
-              <p className="mt-4 text-sm font-medium text-blue-800 dark:text-blue-200">
-                今日の狙い：{suggestion.todayFocus}
+            {suggestion.todayFocus?.trim() && (
+              <p className="mt-3 text-sm text-zinc-700 dark:text-zinc-300">
+                {suggestion.todayFocus}
               </p>
             )}
-            {suggestion.progressionHint && (
-              <p className="mt-2 text-sm text-zinc-700 dark:text-zinc-300">
-                重量・進捗の目安：{suggestion.progressionHint}
+            {suggestion.progressionHint?.trim() && (
+              <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+                重量の目安：{suggestion.progressionHint}
               </p>
             )}
 
@@ -319,10 +322,9 @@ export function SuggestClient() {
                       重量方針: {item.weightPolicy}
                     </p>
                   )}
-                  <p className="mt-1 text-zinc-700 dark:text-zinc-300">
-                    セット（ToDo 一覧に出るプレビュー）：{" "}
+                  <p className="mt-1 font-mono text-sm tabular-nums text-zinc-800 dark:text-zinc-200">
                     {item.sets
-                      .map((s) => `${s.weightKg}kg×${s.reps}`)
+                      .map((s) => `${s.weightKg} kg × ${s.reps} 回`)
                       .join(" / ")}
                   </p>
                   {item.note && (
@@ -335,8 +337,7 @@ export function SuggestClient() {
             </ul>
 
             <p className="mt-4 text-xs text-amber-800 dark:text-amber-200">
-              取り込むと、その日の画面に ToDo
-              一覧として表示されます。チェックしたセットだけ下の「この日の記録」に追加され、既存の記録は消えません。
+              取り込むと、その日の記録画面に提案セットが並びます。チェックしたセットだけ実際の記録に追加され、既存の記録は消えません。
             </p>
 
             <div className="mt-8 flex flex-col gap-2 sm:flex-row sm:justify-end">
@@ -356,7 +357,7 @@ export function SuggestClient() {
                 className="rounded-xl bg-blue-600 px-6 py-3 text-sm font-semibold text-white hover:bg-blue-500 disabled:opacity-50"
                 onClick={() => void applySuggestion()}
               >
-                この内容を ToDo に取り込む
+                この内容を記録画面に取り込む
               </button>
             </div>
           </div>

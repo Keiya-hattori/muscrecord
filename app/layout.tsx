@@ -23,11 +23,7 @@ export const metadata: Metadata = {
   },
   description:
     "種目画像からワンタップで記録。過去の結果をもとにLLMが今日のメニューを提案します。",
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: "default",
-    title: APP_NAME,
-  },
+  /** apple-mobile-web-app-capable を出さない（ホーム画面からも Safari 相当の UI で開く） */
   formatDetection: {
     telephone: false,
   },

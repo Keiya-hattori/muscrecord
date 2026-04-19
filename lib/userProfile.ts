@@ -24,7 +24,8 @@ export const SUGGEST_FIXED_CONTEXT = {
   trainingFocus: "筋肥大",
   experienceAssumption: "中級（おおよそ1年程度の継続を想定。必要に応じて負荷を調整）",
   equipmentAssumption: "フルジム",
-  sessionDurationAssumption: "1セッション60〜90分",
+  /** 以前の「60〜90分想定」より控えめ（総セット・種目数もその前提） */
+  sessionDurationAssumption: "1セッションおおよそ45〜60分",
 } as const;
 
 const bodyPartFocusEnum = z.enum([

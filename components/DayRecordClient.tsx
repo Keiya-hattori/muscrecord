@@ -499,14 +499,10 @@ export function DayRecordClient({ dateKey }: Props) {
             >
               <div>
                 <p className="text-xs font-medium text-amber-900 dark:text-amber-100/90">
-                  提案メニュー（ToDo）
+                  提案メニュー
                 </p>
                 <p className="mt-0.5 text-sm font-bold text-zinc-900 dark:text-zinc-50">
                   {pendingMenu.title ?? "今日のメニュー"}
-                  <span className="ml-2 font-semibold text-amber-800 dark:text-amber-200">
-                    （完了 {pendingMenu.rows.filter((r) => r.applied).length} /{" "}
-                    {pendingMenu.rows.length} セット）
-                  </span>
                 </p>
               </div>
               <span className="text-lg text-zinc-500" aria-hidden>

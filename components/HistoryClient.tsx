@@ -31,7 +31,10 @@ export function HistoryClient() {
   const setCount = useLiveQuery(() => db.sets.count(), []);
   const allExercises = useRecordableExercises();
 
-  const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
+  /** SSR 時は localStorage なし → null → デフォルトお気に入り。これが空のままだと名前順1件目になりベンチにならない */
+  const [favoriteIds, setFavoriteIds] = useState<string[]>(() =>
+    getEffectiveFavoriteIds(loadHistoryFavoriteIds()),
+  );
   const [selectedExerciseId, setSelectedExerciseId] = useState<string>("");
   const [bodyWeightKg, setBodyWeightKg] = useState<number | null>(null);
   const [workouts, setWorkouts] = useState<Awaited<

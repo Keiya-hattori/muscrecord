@@ -7,7 +7,7 @@ const suggestSet = z.object({
 
 export const suggestItem = z.object({
   exerciseId: z.string(),
-  sets: z.array(suggestSet).min(1).max(10),
+  sets: z.array(suggestSet).min(1).max(6),
   /** 例: "8〜12" */
   repRange: z.string().max(50).optional(),
   /** 例: "RIR 1〜2" */
@@ -28,7 +28,7 @@ export const suggestResponse = z.object({
   progressionHint: z.string().max(2000).optional(),
   /** 入力不足時に置いた仮定の明示 */
   assumptionsMade: z.string().max(3000).optional(),
-  items: z.array(suggestItem).min(1).max(14),
+  items: z.array(suggestItem).min(1).max(8),
 });
 
 export type SuggestResponse = z.infer<typeof suggestResponse>;
