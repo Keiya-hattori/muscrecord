@@ -27,6 +27,10 @@ const withSerwist = withSerwistInit({
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  env: {
+    /** クライアントで GitHub Pages 静的出力かどうか（Serwist 登録の可否など） */
+    NEXT_PUBLIC_GITHUB_PAGES: isGhPages ? "true" : "false",
+  },
   ...(isGhPages
     ? {
         output: "export" as const,

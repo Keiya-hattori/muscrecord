@@ -8,11 +8,7 @@ import {
   evaluateAchievements,
   type AchievementStatus,
 } from "@/lib/achievements";
-import {
-  computeGlobalAggregates,
-  dailyVolumeSeries,
-  weeklyVolumeSeries,
-} from "@/lib/stats";
+import { computeGlobalAggregates } from "@/lib/stats";
 import { AppNav } from "@/components/AppNav";
 import { VolumeCharts } from "@/components/ProgressCharts";
 import clsx from "clsx";
@@ -24,26 +20,14 @@ export function ProgressClient() {
   const [agg, setAgg] = useState<Awaited<
     ReturnType<typeof computeGlobalAggregates>
   > | null>(null);
-  const [daily, setDaily] = useState<
-    Awaited<ReturnType<typeof dailyVolumeSeries>>
-  >([]);
-  const [weekly, setWeekly] = useState<
-    Awaited<ReturnType<typeof weeklyVolumeSeries>>
-  >([]);
   const [achievements, setAchievements] = useState<AchievementStatus[]>([]);
 
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const [a, d, w] = await Promise.all([
-        computeGlobalAggregates(),
-        dailyVolumeSeries(14),
-        weeklyVolumeSeries(8),
-      ]);
+      const a = await computeGlobalAggregates();
       if (cancelled) return;
       setAgg(a);
-      setDaily(d);
-      setWeekly(w);
       setAchievements(evaluateAchievements(a));
     })();
     return () => {
@@ -68,14 +52,13 @@ export function ProgressClient() {
           <p className="mt-8 text-center text-sm text-zinc-500">読み込み中…</p>
         ) : (
           <>
-            <section className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-2">
+            <section className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-3">
               <StatCard label="累計セッション" value={String(agg.totalWorkouts)} />
               <StatCard label="累計セット" value={String(agg.totalSets)} />
               <StatCard
                 label="累計ボリューム"
                 value={`${Math.round(agg.totalVolume).toLocaleString()} kg`}
               />
-              <StatCard label="種目バラエティ" value={`${agg.uniqueExerciseCount} 種目`} />
             </section>
 
             <section className="mt-10">
@@ -86,7 +69,9 @@ export function ProgressClient() {
                 ボリューム = 重量(kg) × 回数 の合計です。
               </p>
               <div className="mt-4">
-                <VolumeCharts daily={daily} weekly={weekly} />
+                <VolumeCharts
+                  dataRevision={(workoutCount ?? 0) + (setCount ?? 0)}
+                />
               </div>
             </section>
 

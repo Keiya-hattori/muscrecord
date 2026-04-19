@@ -1,4 +1,8 @@
 import raw from "@/lib/exercises.json";
+import {
+  getRecordableExercises as getRecordableFromCatalog,
+  resolveExerciseById,
+} from "@/lib/exerciseCatalog";
 import type { ExerciseCategory, ExerciseMaster } from "@/lib/types";
 
 const exercises = raw as ExerciseMaster[];
@@ -16,8 +20,13 @@ export function getAllExercises(): ExerciseMaster[] {
   return exercises;
 }
 
+/** 記録画面・種目ピッカー用（設定で非表示にした種目を除く） */
+export function getRecordableExercises(): ExerciseMaster[] {
+  return getRecordableFromCatalog();
+}
+
 export function getExerciseById(id: string): ExerciseMaster | undefined {
-  return exercises.find((e) => e.id === id);
+  return resolveExerciseById(id);
 }
 
 export function getCategoryLabel(cat: ExerciseCategory): string {

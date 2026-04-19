@@ -12,6 +12,14 @@ export function todayLocalDateKey(): string {
   return localDateKeyFromMs(Date.now());
 }
 
+/** 日付キーに日数を加算（ローカル暦） */
+export function addDaysToDateKey(dateKey: string, deltaDays: number): string {
+  const [y, mo, d] = dateKey.split("-").map(Number);
+  const dt = new Date(y, mo - 1, d);
+  dt.setDate(dt.getDate() + deltaDays);
+  return localDateKeyFromMs(dt.getTime());
+}
+
 /** 表示用（例: 2026年4月19日） */
 export function formatSessionDateJp(dateKey: string): string {
   const [y, mo, d] = dateKey.split("-").map(Number);

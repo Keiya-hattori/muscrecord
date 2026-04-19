@@ -2,18 +2,22 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AppNav } from "@/components/AppNav";
 import { todayLocalDateKey } from "@/lib/dateKey";
 
 export function HomeClient() {
   const router = useRouter();
-  const [sessionDate, setSessionDate] = useState(todayLocalDateKey);
+  const [sessionDate, setSessionDate] = useState(() => todayLocalDateKey());
+
+  useEffect(() => {
+    setSessionDate(todayLocalDateKey());
+  }, []);
 
   return (
     <>
       <AppNav current="/" />
-      <div className="mx-auto flex max-w-lg flex-col gap-8 px-4 py-10">
+      <div className="mx-auto flex min-w-0 max-w-lg flex-col gap-8 overflow-x-hidden px-4 py-10">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
             筋トレ記録
@@ -23,7 +27,7 @@ export function HomeClient() {
           </p>
         </div>
 
-        <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+        <div className="min-w-0 max-w-full rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
           <label
             htmlFor="session-date"
             className="block text-sm font-medium text-zinc-700 dark:text-zinc-300"
@@ -35,7 +39,7 @@ export function HomeClient() {
             type="date"
             value={sessionDate}
             onChange={(e) => setSessionDate(e.target.value)}
-            className="mt-2 w-full rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-base text-zinc-900 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-50"
+            className="mt-2 box-border w-full min-w-0 max-w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-3 text-base text-zinc-900 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-50 sm:px-4"
           />
         </div>
 

@@ -2,6 +2,8 @@
 
 import { AppNav } from "@/components/AppNav";
 import { DataBackupSection } from "@/components/DataBackupSection";
+import { ExerciseCatalogSection } from "@/components/ExerciseCatalogSection";
+import { HistoryFavoritesSection } from "@/components/HistoryFavoritesSection";
 import { ProfileSettingsSection } from "@/components/ProfileSettingsSection";
 import { SeedTestDataSection } from "@/components/SeedTestDataSection";
 
@@ -18,6 +20,10 @@ export default function SettingsPage() {
         </p>
 
         <ProfileSettingsSection />
+        <ExerciseCatalogSection />
+        <div id="history-favorites" className="scroll-mt-24">
+          <HistoryFavoritesSection />
+        </div>
         <DataBackupSection />
         <SeedTestDataSection />
       </div>

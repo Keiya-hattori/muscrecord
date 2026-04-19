@@ -3,11 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import clsx from "clsx";
 import type { ExerciseCategory } from "@/lib/types";
-import {
-  getAllExercises,
-  getCategoryLabel,
-  listCategories,
-} from "@/lib/exercises";
+import { useRecordableExercises } from "@/hooks/useRecordableExercises";
+import { getCategoryLabel, listCategories } from "@/lib/exercises";
 import { ExerciseCover } from "@/components/ExerciseCover";
 import {
   loadExercisePickerFromStorage,
@@ -33,6 +30,7 @@ export function ExercisePicker(props: Props) {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<ExerciseCategory | "all">("all");
   const [pickerReady, setPickerReady] = useState(false);
+  const allFromCatalog = useRecordableExercises();
 
   useEffect(() => {
     const s = loadExercisePickerFromStorage();
@@ -49,12 +47,12 @@ export function ExercisePicker(props: Props) {
   }, [query, category, pickerReady]);
 
   const filtered = useMemo(() => {
-    let list = getAllExercises();
+    let list = allFromCatalog;
     if (category !== "all") list = list.filter((e) => e.category === category);
     const q = query.trim().toLowerCase();
     if (q) list = list.filter((e) => e.name.toLowerCase().includes(q));
     return list;
-  }, [category, query]);
+  }, [category, query, allFromCatalog]);
 
   return (
     <div className="flex flex-col gap-4">

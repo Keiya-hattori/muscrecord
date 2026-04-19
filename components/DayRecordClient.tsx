@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useLiveQuery } from "dexie-react-hooks";
 import {
   useCallback,
@@ -19,10 +18,12 @@ import {
   nextOrderForWorkout,
   removeSet,
   setWorkoutPendingLlmMenu,
+  updateSet,
 } from "@/lib/db";
 import { AppNav } from "@/components/AppNav";
 import { ExerciseCover } from "@/components/ExerciseCover";
-import { getAllExercises, getExerciseById } from "@/lib/exercises";
+import { useRecordableExercises } from "@/hooks/useRecordableExercises";
+import { getExerciseById } from "@/lib/exercises";
 import {
   DEFAULT_REPS_FOR_NEW_SET,
   getDefaultWeightKgForExercise,
@@ -60,6 +61,11 @@ type DraftRow = {
   reps: number;
 };
 
+type DraftPanel = {
+  exerciseId: string;
+  draftSets: DraftRow[];
+};
+
 function newDraftRow(
   override?: Partial<Pick<DraftRow, "weightKg" | "reps">> & {
     defaultExerciseId?: string;
@@ -77,22 +83,19 @@ function newDraftRow(
 }
 
 export function DayRecordClient({ dateKey }: Props) {
-  const router = useRouter();
   const [workoutId, setWorkoutId] = useState<string | null>(null);
   const [bodyTab, setBodyTab] = useState<RecordBodyTabId>("chest");
-  const [selectedExerciseId, setSelectedExerciseId] = useState<string | null>(
-    null,
-  );
-  const [draftSets, setDraftSets] = useState<DraftRow[]>(() => [
-    newDraftRow(),
-  ]);
+  const [draftPanels, setDraftPanels] = useState<DraftPanel[]>([]);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [suggestTodoOpen, setSuggestTodoOpen] = useState(true);
+  const [editingSetId, setEditingSetId] = useState<string | null>(null);
+  const [editWeightKg, setEditWeightKg] = useState(0);
+  const [editReps, setEditReps] = useState(0);
 
   const inputSectionRef = useRef<HTMLDivElement>(null);
 
-  const allExercises = useMemo(() => getAllExercises(), []);
+  const allExercises = useRecordableExercises();
   const exercisesInTab = useMemo(
     () => exercisesForRecordTab(bodyTab, allExercises),
     [bodyTab, allExercises],
@@ -107,26 +110,6 @@ export function DayRecordClient({ dateKey }: Props) {
       cancelled = true;
     };
   }, [dateKey]);
-
-  useEffect(() => {
-    if (!selectedExerciseId) return;
-    setDraftSets([
-      newDraftRow({ defaultExerciseId: selectedExerciseId }),
-    ]);
-  }, [selectedExerciseId]);
-
-  useEffect(() => {
-    setSelectedExerciseId(null);
-  }, [bodyTab]);
-
-  useEffect(() => {
-    if (selectedExerciseId && inputSectionRef.current) {
-      inputSectionRef.current.scrollIntoView({
-        behavior: "smooth",
-        block: "center",
-      });
-    }
-  }, [selectedExerciseId]);
 
   const workoutRow = useLiveQuery(
     () => (workoutId ? db.workouts.get(workoutId) : undefined),
@@ -302,76 +285,191 @@ export function DayRecordClient({ dateKey }: Props) {
     return m;
   }, [sets]);
 
-  const updateDraft = useCallback((id: string, patch: Partial<DraftRow>) => {
-    setDraftSets((rows) =>
-      rows.map((r) => (r.id === id ? { ...r, ...patch } : r)),
-    );
-  }, []);
-
-  const addDraftRow = useCallback(() => {
-    setDraftSets((rows) => {
-      const last = rows[rows.length - 1];
-      return [
-        ...rows,
-        newDraftRow(
-          last
-            ? {
-                weightKg: snapWeightToStepKg(last.weightKg),
-                reps: Math.min(50, Math.max(0, Math.floor(last.reps))),
-              }
-            : undefined,
+  const updateDraftInPanel = useCallback(
+    (
+      exerciseId: string,
+      updater: (rows: DraftRow[]) => DraftRow[],
+    ) => {
+      setDraftPanels((panels) =>
+        panels.map((p) =>
+          p.exerciseId === exerciseId
+            ? { ...p, draftSets: updater(p.draftSets) }
+            : p,
         ),
+      );
+    },
+    [],
+  );
+
+  const updateDraft = useCallback(
+    (exerciseId: string, rowId: string, patch: Partial<DraftRow>) => {
+      updateDraftInPanel(exerciseId, (rows) =>
+        rows.map((r) => (r.id === rowId ? { ...r, ...patch } : r)),
+      );
+    },
+    [updateDraftInPanel],
+  );
+
+  const addDraftRow = useCallback(
+    (exerciseId: string) => {
+      updateDraftInPanel(exerciseId, (rows) => {
+        const last = rows[rows.length - 1];
+        return [
+          ...rows,
+          newDraftRow(
+            last
+              ? {
+                  weightKg: snapWeightToStepKg(last.weightKg),
+                  reps: Math.min(50, Math.max(0, Math.floor(last.reps))),
+                  defaultExerciseId: exerciseId,
+                }
+              : { defaultExerciseId: exerciseId },
+          ),
+        ];
+      });
+    },
+    [updateDraftInPanel],
+  );
+
+  const removeDraftRow = useCallback(
+    (exerciseId: string, rowId: string) => {
+      updateDraftInPanel(exerciseId, (rows) =>
+        rows.length <= 1 ? rows : rows.filter((r) => r.id !== rowId),
+      );
+    },
+    [updateDraftInPanel],
+  );
+
+  const openExerciseDraft = useCallback((exerciseId: string) => {
+    setDraftPanels((panels) => {
+      if (panels.some((p) => p.exerciseId === exerciseId)) return panels;
+      return [
+        ...panels,
+        {
+          exerciseId,
+          draftSets: [newDraftRow({ defaultExerciseId: exerciseId })],
+        },
       ];
+    });
+    setErr(null);
+    requestAnimationFrame(() => {
+      inputSectionRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
     });
   }, []);
 
-  const removeDraftRow = useCallback((id: string) => {
-    setDraftSets((rows) =>
-      rows.length <= 1 ? rows : rows.filter((r) => r.id !== id),
-    );
+  const removeDraftPanel = useCallback((exerciseId: string) => {
+    setDraftPanels((panels) => panels.filter((p) => p.exerciseId !== exerciseId));
   }, []);
 
-  const confirmAllDraftSets = useCallback(async () => {
-    if (!workoutId || !selectedExerciseId) {
-      setErr("種目を選んでください。");
-      return;
-    }
-    if (draftSets.length === 0) {
-      setErr("セットを1行以上入力してください。");
-      return;
-    }
-    for (const row of draftSets) {
-      if (row.weightKg < 0 || row.reps < 0) {
-        setErr("重量と回数は0以上にしてください。");
+  const confirmAllDraftPanels = useCallback(async () => {
+    if (!workoutId || draftPanels.length < 2) return;
+    const snapshots = draftPanels.map((p) => ({
+      exerciseId: p.exerciseId,
+      draftSets: [...p.draftSets],
+    }));
+    for (const snap of snapshots) {
+      if (snap.draftSets.length === 0) {
+        setErr("空の種目があります。閉じるかセットを入力してください。");
         return;
+      }
+      for (const row of snap.draftSets) {
+        if (row.weightKg < 0 || row.reps < 0) {
+          setErr("重量と回数は0以上にしてください。");
+          return;
+        }
       }
     }
     setBusy(true);
     setErr(null);
     try {
-      let order = await nextOrderForWorkout(workoutId);
-      for (const row of draftSets) {
-        await addSet({
-          workoutId,
-          exerciseId: selectedExerciseId,
-          order: order++,
-          weightKg: snapWeightToStepKg(row.weightKg),
-          reps: Math.min(50, Math.max(0, Math.floor(row.reps))),
-        });
+      for (const snap of snapshots) {
+        let order = await nextOrderForWorkout(workoutId);
+        for (const row of snap.draftSets) {
+          await addSet({
+            workoutId,
+            exerciseId: snap.exerciseId,
+            order: order++,
+            weightKg: snapWeightToStepKg(row.weightKg),
+            reps: Math.min(50, Math.max(0, Math.floor(row.reps))),
+          });
+        }
       }
-      setDraftSets([
-        newDraftRow({ defaultExerciseId: selectedExerciseId }),
-      ]);
+      setDraftPanels([]);
     } catch {
       setErr("保存に失敗しました。");
     } finally {
       setBusy(false);
     }
-  }, [workoutId, selectedExerciseId, draftSets]);
+  }, [workoutId, draftPanels]);
 
-  const selectedExercise = selectedExerciseId
-    ? getExerciseById(selectedExerciseId)
-    : undefined;
+  const confirmDraftPanel = useCallback(
+    async (exerciseId: string, draftSets: DraftRow[]) => {
+      if (!workoutId) {
+        setErr("ワークアウトを読み込み中です。");
+        return;
+      }
+      if (draftSets.length === 0) {
+        setErr("セットを1行以上入力してください。");
+        return;
+      }
+      for (const row of draftSets) {
+        if (row.weightKg < 0 || row.reps < 0) {
+          setErr("重量と回数は0以上にしてください。");
+          return;
+        }
+      }
+      setBusy(true);
+      setErr(null);
+      try {
+        let order = await nextOrderForWorkout(workoutId);
+        for (const row of draftSets) {
+          await addSet({
+            workoutId,
+            exerciseId,
+            order: order++,
+            weightKg: snapWeightToStepKg(row.weightKg),
+            reps: Math.min(50, Math.max(0, Math.floor(row.reps))),
+          });
+        }
+        setDraftPanels((panels) => panels.filter((p) => p.exerciseId !== exerciseId));
+      } catch {
+        setErr("保存に失敗しました。");
+      } finally {
+        setBusy(false);
+      }
+    },
+    [workoutId],
+  );
+
+  const startEditSet = useCallback((row: WorkoutSetRow) => {
+    setEditingSetId(row.id);
+    setEditWeightKg(snapWeightToStepKg(row.weightKg));
+    setEditReps(Math.min(50, Math.max(0, Math.floor(row.reps))));
+  }, []);
+
+  const cancelEditSet = useCallback(() => {
+    setEditingSetId(null);
+  }, []);
+
+  const saveEditSet = useCallback(async () => {
+    if (!editingSetId) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      await updateSet(editingSetId, {
+        weightKg: snapWeightToStepKg(editWeightKg),
+        reps: Math.min(50, Math.max(0, Math.floor(editReps))),
+      });
+      setEditingSetId(null);
+    } catch {
+      setErr("更新に失敗しました。");
+    } finally {
+      setBusy(false);
+    }
+  }, [editingSetId, editWeightKg, editReps]);
 
   const selectWheelClass =
     "h-14 w-full appearance-none rounded-xl border border-zinc-200 bg-white px-3 text-center text-base font-semibold tabular-nums shadow-sm dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-50";
@@ -380,7 +478,7 @@ export function DayRecordClient({ dateKey }: Props) {
     <>
       <AppNav />
 
-      <div className="mx-auto max-w-4xl px-4 pb-36 pt-4">
+      <div className="mx-auto max-w-4xl px-4 pb-12 pt-4">
         <header className="border-b border-zinc-200 pb-4 dark:border-zinc-700">
           <Link
             href="/"
@@ -540,13 +638,10 @@ export function DayRecordClient({ dateKey }: Props) {
                 <button
                   key={ex.id}
                   type="button"
-                  onClick={() => {
-                    setSelectedExerciseId(ex.id);
-                    setErr(null);
-                  }}
+                  onClick={() => openExerciseDraft(ex.id)}
                   className={clsx(
                     "flex w-[76px] shrink-0 flex-col items-center gap-1 rounded-xl p-2 transition active:scale-[0.97]",
-                    selectedExerciseId === ex.id
+                    draftPanels.some((p) => p.exerciseId === ex.id)
                       ? "bg-blue-100 ring-2 ring-blue-500 dark:bg-blue-950/60"
                       : "bg-white shadow ring-1 ring-zinc-200 dark:bg-zinc-900 dark:ring-zinc-600",
                   )}
@@ -569,128 +664,140 @@ export function DayRecordClient({ dateKey }: Props) {
             セット入力
           </h2>
 
-          {selectedExerciseId && selectedExercise && (
-            <div className="rounded-2xl border border-blue-200 bg-white p-4 dark:border-blue-900/40 dark:bg-zinc-900">
-              <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-                <p className="text-base font-bold text-zinc-900 dark:text-zinc-50">
-                  {selectedExercise.name}
-                </p>
-                <button
-                  type="button"
-                  className="text-sm font-medium text-blue-600 hover:underline dark:text-blue-400"
-                  onClick={() => setSelectedExerciseId(null)}
+          <div className="flex flex-col gap-6">
+            {draftPanels.map((panel) => {
+              const selectedExercise = getExerciseById(panel.exerciseId);
+              const { draftSets } = panel;
+              const exId = panel.exerciseId;
+              return (
+                <div
+                  key={exId}
+                  id={`draft-panel-${exId}`}
+                  className="rounded-2xl border border-blue-200 bg-white p-4 dark:border-blue-900/40 dark:bg-zinc-900"
                 >
-                  種目をクリア
-                </button>
-              </div>
-
-              <div className="flex flex-col gap-5">
-                {draftSets.map((row, index) => {
-                  const wVal = snapWeightToStepKg(row.weightKg);
-                  const rVal = Math.min(
-                    50,
-                    Math.max(0, Math.floor(row.reps)),
-                  );
-                  return (
-                    <div
-                      key={row.id}
-                      className="rounded-xl border border-zinc-100 bg-zinc-50/90 p-4 dark:border-zinc-600 dark:bg-zinc-800/40"
+                  <div className="mb-4 flex flex-wrap items-start justify-between gap-2">
+                    <p className="text-base font-bold text-zinc-900 dark:text-zinc-50">
+                      {selectedExercise?.name ?? panel.exerciseId}
+                    </p>
+                    <button
+                      type="button"
+                      aria-label="この種目の入力を閉じる"
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-zinc-200 text-lg font-light text-zinc-500 hover:bg-zinc-100 dark:border-zinc-600 dark:hover:bg-zinc-800"
+                      onClick={() => removeDraftPanel(exId)}
                     >
-                      <div className="mb-3 flex items-center justify-between gap-2">
-                        <span className="text-sm font-semibold text-zinc-700 dark:text-zinc-200">
-                          セット {index + 1}
-                        </span>
-                        {draftSets.length > 1 && (
-                          <button
-                            type="button"
-                            className="text-xs text-red-600 hover:underline dark:text-red-400"
-                            onClick={() => removeDraftRow(row.id)}
-                          >
-                            削除
-                          </button>
-                        )}
-                      </div>
+                      ✕
+                    </button>
+                  </div>
 
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label
-                            className="mb-1 block text-center text-xs font-medium text-zinc-500"
-                            htmlFor={`w-${row.id}`}
-                          >
-                            重量 (kg)
-                          </label>
-                          <select
-                            id={`w-${row.id}`}
-                            className={selectWheelClass}
-                            value={wVal}
-                            onChange={(e) =>
-                              updateDraft(row.id, {
-                                weightKg: Number(e.target.value),
-                              })
-                            }
-                          >
-                            {WEIGHT_SELECT_OPTIONS.map((w) => (
-                              <option key={w} value={w}>
-                                {w % 1 === 0 ? w : w.toFixed(1)} kg
-                              </option>
-                            ))}
-                          </select>
-                          <p className="mt-1 text-center text-[10px] text-zinc-400">
-                            タップしてスクロール選択（端末の標準UI）
-                          </p>
+                  <div className="flex flex-col gap-5">
+                    {draftSets.map((row, index) => {
+                      const wVal = snapWeightToStepKg(row.weightKg);
+                      const rVal = Math.min(
+                        50,
+                        Math.max(0, Math.floor(row.reps)),
+                      );
+                      return (
+                        <div
+                          key={row.id}
+                          className="rounded-xl border border-zinc-100 bg-zinc-50/90 p-4 dark:border-zinc-600 dark:bg-zinc-800/40"
+                        >
+                          <div className="mb-3 flex items-center justify-between gap-2">
+                            <span className="text-sm font-semibold text-zinc-700 dark:text-zinc-200">
+                              セット {index + 1}
+                            </span>
+                            {draftSets.length > 1 && (
+                              <button
+                                type="button"
+                                className="text-xs text-red-600 hover:underline dark:text-red-400"
+                                onClick={() => removeDraftRow(exId, row.id)}
+                              >
+                                削除
+                              </button>
+                            )}
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <label
+                                className="mb-1 block text-center text-xs font-medium text-zinc-500"
+                                htmlFor={`w-${exId}-${row.id}`}
+                              >
+                                重量 (kg)
+                              </label>
+                              <select
+                                id={`w-${exId}-${row.id}`}
+                                className={selectWheelClass}
+                                value={wVal}
+                                onChange={(e) =>
+                                  updateDraft(exId, row.id, {
+                                    weightKg: Number(e.target.value),
+                                  })
+                                }
+                              >
+                                {WEIGHT_SELECT_OPTIONS.map((w) => (
+                                  <option key={w} value={w}>
+                                    {w % 1 === 0 ? w : w.toFixed(1)} kg
+                                  </option>
+                                ))}
+                              </select>
+                              <p className="mt-1 text-center text-[10px] text-zinc-400">
+                                タップしてスクロール選択（端末の標準UI）
+                              </p>
+                            </div>
+                            <div>
+                              <label
+                                className="mb-1 block text-center text-xs font-medium text-zinc-500"
+                                htmlFor={`r-${exId}-${row.id}`}
+                              >
+                                回数
+                              </label>
+                              <select
+                                id={`r-${exId}-${row.id}`}
+                                className={selectWheelClass}
+                                value={rVal}
+                                onChange={(e) =>
+                                  updateDraft(exId, row.id, {
+                                    reps: Number(e.target.value),
+                                  })
+                                }
+                              >
+                                {REP_SELECT_OPTIONS.map((r) => (
+                                  <option key={r} value={r}>
+                                    {r} 回
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          </div>
                         </div>
-                        <div>
-                          <label
-                            className="mb-1 block text-center text-xs font-medium text-zinc-500"
-                            htmlFor={`r-${row.id}`}
-                          >
-                            回数
-                          </label>
-                          <select
-                            id={`r-${row.id}`}
-                            className={selectWheelClass}
-                            value={rVal}
-                            onChange={(e) =>
-                              updateDraft(row.id, {
-                                reps: Number(e.target.value),
-                              })
-                            }
-                          >
-                            {REP_SELECT_OPTIONS.map((r) => (
-                              <option key={r} value={r}>
-                                {r} 回
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+                      );
+                    })}
+                  </div>
 
-              <button
-                type="button"
-                onClick={addDraftRow}
-                className="mt-4 w-full rounded-xl border-2 border-dashed border-zinc-300 bg-zinc-50 py-3 text-sm font-semibold text-zinc-700 hover:bg-zinc-100 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
-              >
-                ＋ セットを追加
-              </button>
+                  <button
+                    type="button"
+                    onClick={() => addDraftRow(exId)}
+                    className="mt-4 w-full rounded-xl border-2 border-dashed border-zinc-300 bg-zinc-50 py-3 text-sm font-semibold text-zinc-700 hover:bg-zinc-100 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
+                  >
+                    ＋ セットを追加
+                  </button>
 
-              <button
-                type="button"
-                disabled={busy || !workoutId}
-                onClick={() => void confirmAllDraftSets()}
-                className="mt-4 w-full rounded-2xl bg-blue-600 px-6 py-4 text-lg font-semibold text-white shadow hover:bg-blue-500 disabled:opacity-50"
-              >
-                この種目のセットをまとめて確定
-              </button>
-            </div>
-          )}
+                  <button
+                    type="button"
+                    disabled={busy || !workoutId}
+                    onClick={() => void confirmDraftPanel(exId, draftSets)}
+                    className="mt-4 w-full rounded-2xl bg-blue-600 px-6 py-4 text-lg font-semibold text-white shadow hover:bg-blue-500 disabled:opacity-50"
+                  >
+                    この種目のセットをまとめて確定
+                  </button>
+                </div>
+              );
+            })}
+          </div>
 
-          {!selectedExerciseId && (
+          {draftPanels.length === 0 && (
             <p className="rounded-xl border border-dashed border-zinc-200 px-4 py-8 text-center text-sm text-zinc-500 dark:border-zinc-600 dark:text-zinc-400">
-              上から部位 → 種目を選ぶと、ここに重量・回数を入れられます。
+              上から部位 → 種目をタップすると、ここに入力欄が並びます。別の種目をタップすると下に追加されます。
             </p>
           )}
 
@@ -698,6 +805,17 @@ export function DayRecordClient({ dateKey }: Props) {
             <p className="mt-3 text-sm text-red-600 dark:text-red-400">
               {err}
             </p>
+          )}
+
+          {draftPanels.length >= 2 && (
+            <button
+              type="button"
+              disabled={busy || !workoutId}
+              onClick={() => void confirmAllDraftPanels()}
+              className="mt-6 w-full rounded-2xl border-2 border-blue-600 bg-white py-4 text-lg font-semibold text-blue-600 shadow-sm transition hover:bg-blue-50 disabled:opacity-50 dark:border-blue-500 dark:bg-zinc-900 dark:text-blue-400 dark:hover:bg-blue-950/40"
+            >
+              すべての種目のセットをまとめて確定
+            </button>
           )}
         </section>
 
@@ -809,23 +927,91 @@ export function DayRecordClient({ dateKey }: Props) {
                         {rows.map((rrow, idx) => (
                           <li
                             key={rrow.id}
-                            className="flex flex-wrap items-center justify-between gap-2 bg-white/50 px-4 py-3 dark:bg-zinc-950/40"
+                            className="flex flex-col gap-3 bg-white/50 px-4 py-3 dark:bg-zinc-950/40"
                           >
-                            <div className="flex min-w-0 flex-1 items-center gap-3">
-                              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-800 dark:bg-blue-950 dark:text-blue-200">
-                                {idx + 1}
-                              </span>
-                              <span className="font-mono text-sm tabular-nums text-zinc-800 dark:text-zinc-200">
-                                {rrow.weightKg} kg × {rrow.reps} 回
-                              </span>
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <div className="flex min-w-0 flex-1 items-center gap-3">
+                                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-800 dark:bg-blue-950 dark:text-blue-200">
+                                  {idx + 1}
+                                </span>
+                                {editingSetId === rrow.id ? (
+                                  <div className="grid w-full max-w-sm grid-cols-2 gap-2">
+                                    <select
+                                      className={selectWheelClass}
+                                      value={snapWeightToStepKg(editWeightKg)}
+                                      onChange={(e) =>
+                                        setEditWeightKg(Number(e.target.value))
+                                      }
+                                    >
+                                      {WEIGHT_SELECT_OPTIONS.map((w) => (
+                                        <option key={w} value={w}>
+                                          {w % 1 === 0 ? w : w.toFixed(1)} kg
+                                        </option>
+                                      ))}
+                                    </select>
+                                    <select
+                                      className={selectWheelClass}
+                                      value={Math.min(
+                                        50,
+                                        Math.max(0, Math.floor(editReps)),
+                                      )}
+                                      onChange={(e) =>
+                                        setEditReps(Number(e.target.value))
+                                      }
+                                    >
+                                      {REP_SELECT_OPTIONS.map((r) => (
+                                        <option key={r} value={r}>
+                                          {r} 回
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                ) : (
+                                  <span className="font-mono text-sm tabular-nums text-zinc-800 dark:text-zinc-200">
+                                    {rrow.weightKg} kg × {rrow.reps} 回
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex shrink-0 flex-wrap items-center gap-1">
+                                {editingSetId === rrow.id ? (
+                                  <>
+                                    <button
+                                      type="button"
+                                      disabled={busy}
+                                      className="rounded-lg px-2 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                                      onClick={cancelEditSet}
+                                    >
+                                      キャンセル
+                                    </button>
+                                    <button
+                                      type="button"
+                                      disabled={busy}
+                                      className="rounded-lg bg-blue-600 px-2 py-1 text-xs font-semibold text-white hover:bg-blue-500 disabled:opacity-50"
+                                      onClick={() => void saveEditSet()}
+                                    >
+                                      保存
+                                    </button>
+                                  </>
+                                ) : (
+                                  <>
+                                    <button
+                                      type="button"
+                                      className="rounded-lg px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950/40"
+                                      onClick={() => startEditSet(rrow)}
+                                    >
+                                      編集
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="rounded-lg px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/50"
+                                      onClick={() => void removeSet(rrow.id)}
+                                    >
+                                      削除
+                                    </button>
+                                  </>
+                                )}
+                              </div>
                             </div>
-                            <button
-                              type="button"
-                              className="shrink-0 rounded-lg px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/50"
-                              onClick={() => void removeSet(rrow.id)}
-                            >
-                              削除
-                            </button>
                           </li>
                         ))}
                       </ul>
@@ -838,17 +1024,6 @@ export function DayRecordClient({ dateKey }: Props) {
         </section>
       </div>
 
-      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-zinc-200 bg-white/95 px-4 py-3 backdrop-blur dark:border-zinc-800 dark:bg-zinc-950/95">
-        <div className="mx-auto max-w-lg pb-[env(safe-area-inset-bottom,0px)]">
-          <button
-            type="button"
-            onClick={() => router.push("/history")}
-            className="w-full rounded-2xl bg-zinc-900 py-3.5 text-sm font-semibold text-white shadow-sm transition hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white"
-          >
-            記録を完了して一覧へ
-          </button>
-        </div>
-      </div>
     </>
   );
 }
