@@ -6,8 +6,10 @@ on:
     branches: ["main", "master"]
   workflow_dispatch:
 
+# actions: write がないと upload-pages-artifact が失敗する（他スコープを省略すると既定が無効になるため）
 permissions:
   contents: read
+  actions: write
   pages: write
   id-token: write
 
@@ -35,6 +37,8 @@ jobs:
           GITHUB_PAGES: "true"
           BASE_PATH: /${{ github.event.repository.name }}
           NEXT_PUBLIC_GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          # 日付ページ大量生成でメモリ不足になるのを防ぐ
+          NODE_OPTIONS: --max-old-space-size=8192
         run: npm run build
 
       - name: Disable Jekyll (allow _next etc.)
@@ -47,6 +51,9 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

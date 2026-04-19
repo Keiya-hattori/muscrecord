@@ -48,6 +48,12 @@ npm start
 `BASE_PATH` はリポジトリ名に合わせて CI 内で自動設定しています。  
 **モノレポ**で `muscrecord` がサブフォルダだけの場合は、ワークフローに `working-directory: muscrecord` を足し、`upload-pages-artifact` の `path` を `muscrecord/out` に合わせてください。
 
+### デプロイが失敗するとき
+
+- **Settings → Pages** で **Source** が **GitHub Actions** になっているか確認する。  
+- Actions のログで **build** が落ちている場合: リポジトリの **Settings → Actions → General → Workflow permissions** で、ワークフローに **Read and write permissions**（または `GITHUB_TOKEN` に `actions: write` が渡る設定）が必要な場合がある。ワークフロー内では `permissions` に **`actions: write`** を含めてある。  
+- **deploy** が落ちる場合: **Environments** の `github-pages` に承認待ちがないか、Organization のポリシーで Pages が無効になっていないかを確認する。
+
 ### 静的エクスポート用のローカルビルド
 
 ```bash
