@@ -1,18 +1,28 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AppNav } from "@/components/AppNav";
 import { todayLocalDateKey } from "@/lib/dateKey";
 
 export function HomeClient() {
-  const router = useRouter();
   const [sessionDate, setSessionDate] = useState(() => todayLocalDateKey());
 
   useEffect(() => {
     setSessionDate(todayLocalDateKey());
   }, []);
+
+  const openDayRecord = () => {
+    const v = sessionDate.trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) return;
+    /**
+     * 一部環境（特に静的ホスティング）で、クライアント遷移直後だけ
+     * /day ページが落ちてリロードで復帰する事象があるため、ここは
+     * フル遷移で確実に開く。
+     */
+    const target = new URL(`day/${v}`, window.location.href).toString();
+    window.location.assign(target);
+  };
 
   return (
     <>
@@ -45,7 +55,7 @@ export function HomeClient() {
 
         <button
           type="button"
-          onClick={() => router.push(`/day/${sessionDate}`)}
+          onClick={openDayRecord}
           className="rounded-2xl bg-violet-600 px-6 py-4 text-lg font-semibold text-white shadow-lg shadow-violet-500/30 transition hover:bg-violet-500 active:scale-[0.99] dark:bg-violet-500/90 dark:hover:bg-violet-400"
         >
           この日の記録を開く
