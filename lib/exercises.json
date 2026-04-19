@@ -1,0 +1,74 @@
+[
+  {
+    "id": "bench_press",
+    "name": "ベンチプレス",
+    "category": "chest",
+    "imagePath": "/exercises/bench_press.png"
+  },
+  {
+    "id": "squat",
+    "name": "スクワット",
+    "category": "legs",
+    "imagePath": "/exercises/squat.png"
+  },
+  {
+    "id": "deadlift",
+    "name": "デッドリフト",
+    "category": "legs",
+    "imagePath": "/exercises/deadlift.png"
+  },
+  {
+    "id": "ohp",
+    "name": "オーバーヘッドプレス",
+    "category": "shoulders",
+    "imagePath": "/exercises/ohp.png"
+  },
+  {
+    "id": "barbell_row",
+    "name": "ベントオーバーロウ",
+    "category": "back",
+    "imagePath": "/exercises/barbell_row.png"
+  },
+  {
+    "id": "lat_pulldown",
+    "name": "ラットプルダウン",
+    "category": "back",
+    "imagePath": "/exercises/lat_pulldown.png"
+  },
+  {
+    "id": "leg_press",
+    "name": "レッグプレス",
+    "category": "legs",
+    "imagePath": "/exercises/leg_press.png"
+  },
+  {
+    "id": "leg_curl",
+    "name": "レッグカール",
+    "category": "legs",
+    "imagePath": "/exercises/leg_curl.png"
+  },
+  {
+    "id": "bicep_curl",
+    "name": "ダンベルカール",
+    "category": "arms",
+    "imagePath": "/exercises/bicep_curl.png"
+  },
+  {
+    "id": "tricep_pushdown",
+    "name": "プレスダウン",
+    "category": "arms",
+    "imagePath": "/exercises/tricep_pushdown.png"
+  },
+  {
+    "id": "lateral_raise",
+    "name": "サイドレイズ",
+    "category": "shoulders",
+    "imagePath": "/exercises/lateral_raise.png"
+  },
+  {
+    "id": "plank",
+    "name": "プランク",
+    "category": "core",
+    "imagePath": "/exercises/plank.png"
+  }
+]
