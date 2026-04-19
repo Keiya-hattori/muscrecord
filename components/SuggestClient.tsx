@@ -31,6 +31,7 @@ import {
   loadTodayContextFromStorage,
   saveTodayContextToStorage,
 } from "@/lib/uiPersist";
+import { LlmHistoryExportSection } from "@/components/LlmHistoryExportSection";
 
 export function SuggestClient() {
   const router = useRouter();
@@ -129,24 +130,20 @@ export function SuggestClient() {
   return (
     <>
       <AppNav current="/suggest" />
-      <div className="mx-auto flex min-w-0 max-w-lg flex-col gap-6 overflow-x-hidden px-4 py-10">
+      <div className="mx-auto flex min-w-0 max-w-lg flex-col gap-6 overflow-x-hidden px-4 py-12">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
+          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
             メニュー提案
           </h1>
-          <p className="mt-2 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">
+          <p className="mt-2 text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">
             直近の記録と設定をサーバーに送り、今日のメニューを生成します（送信は「提案する」押下時のみ）。
           </p>
         </div>
 
-        <p className="text-xs text-amber-900 dark:text-amber-100/90">
-          LLM の提案は参考です。体調・痛みがあるときは無理せず、必要なら専門家に相談してください。
-        </p>
-
-        <div className="min-w-0 max-w-full rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900">
+        <div className="min-w-0 max-w-full rounded-2xl border border-zinc-200/80 bg-white/80 p-4 backdrop-blur-sm dark:border-white/10 dark:bg-white/[0.04]">
           <label
             htmlFor="suggest-session-date"
-            className="block text-sm font-medium text-zinc-700 dark:text-zinc-300"
+            className="block text-sm font-medium text-zinc-700 dark:text-zinc-200"
           >
             取り込む日付
           </label>
@@ -155,11 +152,11 @@ export function SuggestClient() {
             type="date"
             value={sessionDate}
             onChange={(e) => setSessionDate(e.target.value)}
-            className="mt-2 box-border w-full min-w-0 max-w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-3 text-base text-zinc-900 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-50 sm:px-4"
+            className="date-input-native mt-2 box-border w-full min-w-0 max-w-full rounded-xl border border-zinc-300/80 bg-white/90 px-3 py-3 text-base text-zinc-900 dark:border-white/15 dark:bg-zinc-900/70 dark:text-zinc-50 sm:px-4"
           />
         </div>
 
-        <section className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900">
+        <section className="rounded-2xl border border-zinc-200/80 bg-white/80 p-4 backdrop-blur-sm dark:border-white/10 dark:bg-white/[0.04]">
           <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
             今日のコンディション
           </h2>
@@ -167,7 +164,7 @@ export function SuggestClient() {
             身長・体重は{" "}
             <Link
               href="/settings"
-              className="text-blue-600 underline dark:text-blue-400"
+              className="text-violet-700 underline dark:text-violet-300"
             >
               設定
             </Link>
@@ -194,8 +191,8 @@ export function SuggestClient() {
                   className={clsx(
                     "min-h-[48px] rounded-xl border-2 px-2 py-3 text-sm font-semibold transition active:scale-[0.98]",
                     on
-                      ? "border-blue-600 bg-blue-600 text-white"
-                      : "border-zinc-200 bg-zinc-50 text-zinc-800 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100",
+                      ? "border-violet-500 bg-violet-600 text-white dark:border-violet-400 dark:bg-violet-500/80"
+                      : "border-zinc-300/70 bg-white/80 text-zinc-800 dark:border-white/15 dark:bg-zinc-900/60 dark:text-zinc-100",
                   )}
                 >
                   {label}
@@ -217,7 +214,7 @@ export function SuggestClient() {
                       : (Number(e.target.value) as TodayContext["fatigueLevel"]),
                 })
               }
-              className="mt-1 w-full rounded-lg border border-zinc-200 bg-white px-2 py-2 text-sm dark:border-zinc-600 dark:bg-zinc-950 dark:text-zinc-50"
+              className="mt-1 w-full rounded-lg border border-zinc-300/80 bg-white/90 px-2 py-2 text-sm dark:border-white/15 dark:bg-zinc-900/70 dark:text-zinc-50"
             >
               <option value="">未入力</option>
               <option value={1}>1 軽い</option>
@@ -239,7 +236,7 @@ export function SuggestClient() {
                   motivation: e.target.value as TodayContext["motivation"],
                 })
               }
-              className="mt-1 w-full rounded-lg border border-zinc-200 bg-white px-2 py-2 text-sm dark:border-zinc-600 dark:bg-zinc-950 dark:text-zinc-50"
+              className="mt-1 w-full rounded-lg border border-zinc-300/80 bg-white/90 px-2 py-2 text-sm dark:border-white/15 dark:bg-zinc-900/70 dark:text-zinc-50"
             >
               <option value="">未入力</option>
               <option value="low">低め</option>
@@ -253,7 +250,7 @@ export function SuggestClient() {
           type="button"
           disabled={busy}
           onClick={() => void requestSuggestion()}
-          className="rounded-2xl bg-blue-600 px-6 py-4 text-center text-lg font-semibold text-white shadow-lg hover:bg-blue-500 disabled:opacity-50"
+          className="rounded-2xl bg-violet-600 px-6 py-4 text-center text-lg font-semibold text-white shadow-lg shadow-violet-500/30 hover:bg-violet-500 disabled:opacity-50 dark:bg-violet-500/90 dark:hover:bg-violet-400"
         >
           {busy ? "生成中…" : "メニューを提案する"}
         </button>
@@ -263,6 +260,8 @@ export function SuggestClient() {
             {err}
           </p>
         )}
+
+        <LlmHistoryExportSection />
       </div>
 
       {modalOpen && suggestion && (
@@ -270,7 +269,7 @@ export function SuggestClient() {
           <div
             role="dialog"
             aria-modal="true"
-            className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl dark:bg-zinc-900"
+            className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-zinc-200/80 bg-white/95 p-6 shadow-2xl backdrop-blur-sm dark:border-white/10 dark:bg-zinc-900/95"
           >
             <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-50">
               {suggestion.title ?? "今日の提案"}
@@ -283,7 +282,7 @@ export function SuggestClient() {
             </p>
 
             {suggestion.assumptionsMade && (
-              <p className="mt-4 rounded-lg border border-zinc-200 bg-zinc-50 p-3 text-xs text-zinc-600 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-400">
+              <p className="mt-4 rounded-lg border border-zinc-200/80 bg-zinc-50/80 p-3 text-xs text-zinc-600 dark:border-white/10 dark:bg-zinc-800/40 dark:text-zinc-300">
                 <strong className="font-medium">置いた仮定：</strong>
                 {suggestion.assumptionsMade}
               </p>
@@ -354,7 +353,7 @@ export function SuggestClient() {
               <button
                 type="button"
                 disabled={busy}
-                className="rounded-xl bg-blue-600 px-6 py-3 text-sm font-semibold text-white hover:bg-blue-500 disabled:opacity-50"
+                className="rounded-xl bg-violet-600 px-6 py-3 text-sm font-semibold text-white hover:bg-violet-500 disabled:opacity-50 dark:bg-violet-500/90 dark:hover:bg-violet-400"
                 onClick={() => void applySuggestion()}
               >
                 この内容を記録画面に取り込む

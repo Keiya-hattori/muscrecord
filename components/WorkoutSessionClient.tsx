@@ -128,7 +128,7 @@ export function WorkoutSessionClient({ workoutId }: Props) {
                 onChange={(e) =>
                   void updateWorkoutSessionDate(workoutId, e.target.value)
                 }
-                className="mt-2 w-full max-w-xs rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-2 text-base text-zinc-900 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-50"
+                className="date-input-native mt-2 w-full max-w-xs rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-2 text-base text-zinc-900 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-50"
               />
             </div>
           )}

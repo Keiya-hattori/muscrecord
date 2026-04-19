@@ -40,11 +40,11 @@ export function ProgressClient() {
   return (
     <div className="min-h-screen pb-16">
       <AppNav current="/progress" />
-      <div className="mx-auto max-w-lg px-4 py-8">
-        <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">
+      <div className="mx-auto max-w-lg px-4 py-10">
+        <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-50">
           グラフ・称号
         </h1>
-        <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+        <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-300">
           累計の記録と、達成した称号を確認できます。
         </p>
 
@@ -91,8 +91,8 @@ export function ProgressClient() {
                     className={clsx(
                       "flex gap-3 rounded-2xl border p-4 transition",
                       a.unlocked
-                        ? "border-amber-200 bg-amber-50/80 dark:border-amber-800 dark:bg-amber-950/30"
-                        : "border-zinc-200 opacity-60 grayscale dark:border-zinc-700",
+                        ? "border-violet-200 bg-violet-50/80 dark:border-violet-400/30 dark:bg-violet-500/15"
+                        : "border-zinc-200/80 opacity-70 grayscale dark:border-white/10",
                     )}
                   >
                     <span className="text-3xl" aria-hidden>
@@ -102,7 +102,7 @@ export function ProgressClient() {
                       <p className="font-bold text-zinc-900 dark:text-zinc-50">
                         {a.title}
                         {a.unlocked ? (
-                          <span className="ml-2 text-xs font-normal text-emerald-600 dark:text-emerald-400">
+                          <span className="ml-2 text-xs font-normal text-violet-700 dark:text-violet-300">
                             獲得済み
                           </span>
                         ) : (
@@ -128,7 +128,7 @@ export function ProgressClient() {
 
 function StatCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+    <div className="rounded-2xl border border-zinc-200/80 bg-white/85 p-4 shadow-sm backdrop-blur-sm dark:border-white/10 dark:bg-white/[0.04]">
       <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">{label}</p>
       <p className="mt-1 text-lg font-bold tabular-nums text-zinc-900 dark:text-zinc-50">
         {value}

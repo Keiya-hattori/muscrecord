@@ -11,11 +11,11 @@ export default function SettingsPage() {
   return (
     <div className="min-h-screen">
       <AppNav current="/settings" />
-      <div className="mx-auto max-w-lg px-4 py-10">
-        <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">
+      <div className="mx-auto max-w-lg px-4 py-12">
+        <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-50">
           設定
         </h1>
-        <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+        <p className="mt-2 text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">
           メニュー提案の精度に使う情報です。記録データ本体は端末のみに保存されます。「メニュー提案」実行時は、この情報と直近の記録の要約がブラウザから Google Gemini に送られます（API キーが必要です）。
         </p>
 
