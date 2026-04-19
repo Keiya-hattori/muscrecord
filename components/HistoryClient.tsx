@@ -20,6 +20,10 @@ import {
   loadHistoryFavoriteIds,
   subscribeHistoryFavorites,
 } from "@/lib/historyFavorites";
+import {
+  RECORD_BODY_TABS,
+  exercisesForRecordTab,
+} from "@/lib/recordBodyTabs";
 import { useRecordableExercises } from "@/hooks/useRecordableExercises";
 import { parseUserProfileJson } from "@/lib/userProfile";
 import { formatDateFullJa } from "@/lib/stats";
@@ -72,7 +76,15 @@ export function HistoryClient() {
   }, [workoutCount, setCount]);
 
   const sortedOptions = useMemo(() => {
-    return [...allExercises].sort((a, b) =>
+    const ids = new Set<string>();
+    const visibleInRecord = RECORD_BODY_TABS.flatMap((tab) =>
+      exercisesForRecordTab(tab.id, allExercises),
+    ).filter((ex) => {
+      if (ids.has(ex.id)) return false;
+      ids.add(ex.id);
+      return true;
+    });
+    return visibleInRecord.sort((a, b) =>
       a.name.localeCompare(b.name, "ja"),
     );
   }, [allExercises]);
@@ -112,11 +124,11 @@ export function HistoryClient() {
   return (
     <div className="min-h-screen pb-12">
       <AppNav current="/history" />
-      <div className="mx-auto max-w-lg px-4 py-8">
-        <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">
+      <div className="mx-auto max-w-lg px-4 py-10">
+        <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-50">
           種目別の記録
         </h1>
-        <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+        <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-300">
           上のリストで種目を選ぶと、ベストの日の全セットと直近5日分を表示します。お気に入りは設定から編集できます。
         </p>
 
@@ -129,7 +141,7 @@ export function HistoryClient() {
           </label>
           <select
             id="history-exercise-select"
-            className="mt-2 w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-base font-medium text-zinc-900 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-50"
+            className="mt-2 w-full rounded-xl border border-zinc-300/80 bg-white/90 px-4 py-3 text-base font-medium text-zinc-900 dark:border-white/15 dark:bg-zinc-900/70 dark:text-zinc-50"
             value={selectedExerciseId}
             onChange={(e) => setSelectedExerciseId(e.target.value)}
           >
@@ -149,7 +161,7 @@ export function HistoryClient() {
               </h2>
               <Link
                 href="/settings#history-favorites"
-                className="text-xs font-medium text-blue-600 hover:underline dark:text-blue-400"
+                className="text-xs font-medium text-violet-700 hover:underline dark:text-violet-300"
               >
                 設定で編集
               </Link>
@@ -167,8 +179,8 @@ export function HistoryClient() {
                     className={clsx(
                       "flex items-center gap-2 rounded-xl border px-2 py-2 text-left text-sm transition",
                       active
-                        ? "border-blue-500 bg-blue-50 ring-1 ring-blue-500 dark:bg-blue-950/40"
-                        : "border-zinc-200 bg-white hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-900 dark:hover:bg-zinc-800",
+                        ? "border-violet-500 bg-violet-50 ring-1 ring-violet-400 dark:bg-violet-500/20"
+                        : "border-zinc-200/80 bg-white/80 hover:bg-zinc-50 dark:border-white/10 dark:bg-white/[0.03] dark:hover:bg-white/[0.06]",
                     )}
                   >
                     <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-lg">
@@ -183,10 +195,10 @@ export function HistoryClient() {
         )}
 
         {selectedExerciseId && (
-          <article className="mt-10 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+          <article className="mt-10 rounded-2xl border border-zinc-200/80 bg-white/85 p-4 shadow-sm backdrop-blur-sm dark:border-white/10 dark:bg-white/[0.04]">
             <div className="mb-4 flex items-start gap-3">
               {selectedMeta && (
-                <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-600">
+                <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-zinc-200/80 dark:border-white/15">
                   <ExerciseCover exercise={selectedMeta} imageSizes="56px" />
                 </div>
               )}
@@ -203,7 +215,7 @@ export function HistoryClient() {
               </div>
             </div>
 
-            <div className="rounded-xl border-2 border-zinc-300 bg-zinc-50/80 p-4 dark:border-zinc-600 dark:bg-zinc-950/50">
+            <div className="rounded-xl border border-zinc-300/80 bg-zinc-50/85 p-4 dark:border-white/15 dark:bg-zinc-900/60">
               <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
                 {selectedExerciseId === PULL_UP_EXERCISE_ID
                   ? "歴代ベストの日（合計回数）"
