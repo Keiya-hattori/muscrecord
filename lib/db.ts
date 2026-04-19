@@ -22,14 +22,21 @@ export function newId(): string {
   return crypto.randomUUID();
 }
 
-export async function createWorkout(note?: string): Promise<string> {
+export async function createWorkoutWithStartedAt(
+  startedAt: number,
+  note?: string,
+): Promise<string> {
   const id = newId();
   await db.workouts.add({
     id,
-    startedAt: Date.now(),
+    startedAt,
     note,
   });
   return id;
+}
+
+export async function createWorkout(note?: string): Promise<string> {
+  return createWorkoutWithStartedAt(Date.now(), note);
 }
 
 export async function deleteWorkout(workoutId: string): Promise<void> {

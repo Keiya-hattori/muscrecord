@@ -6,6 +6,12 @@
     "imagePath": "/exercises/bench_press.png"
   },
   {
+    "id": "incline_dumbbell_press",
+    "name": "インクラインダンベルプレス",
+    "category": "chest",
+    "imagePath": "/exercises/bench_press.png"
+  },
+  {
     "id": "squat",
     "name": "スクワット",
     "category": "legs",
@@ -18,8 +24,14 @@
     "imagePath": "/exercises/deadlift.png"
   },
   {
+    "id": "half_deadlift",
+    "name": "ハーフデッド",
+    "category": "legs",
+    "imagePath": "/exercises/deadlift.png"
+  },
+  {
     "id": "ohp",
-    "name": "オーバーヘッドプレス",
+    "name": "ショルダープレス",
     "category": "shoulders",
     "imagePath": "/exercises/ohp.png"
   },
@@ -32,6 +44,12 @@
   {
     "id": "lat_pulldown",
     "name": "ラットプルダウン",
+    "category": "back",
+    "imagePath": "/exercises/lat_pulldown.png"
+  },
+  {
+    "id": "pull_up",
+    "name": "懸垂",
     "category": "back",
     "imagePath": "/exercises/lat_pulldown.png"
   },
@@ -49,9 +67,21 @@
   },
   {
     "id": "bicep_curl",
-    "name": "ダンベルカール",
+    "name": "アームカール",
     "category": "arms",
     "imagePath": "/exercises/bicep_curl.png"
+  },
+  {
+    "id": "incline_bicep_curl",
+    "name": "インクラインアームカール",
+    "category": "arms",
+    "imagePath": "/exercises/bicep_curl.png"
+  },
+  {
+    "id": "lying_tricep_extension",
+    "name": "ライイングエクステンション",
+    "category": "arms",
+    "imagePath": "/exercises/tricep_pushdown.png"
   },
   {
     "id": "tricep_pushdown",

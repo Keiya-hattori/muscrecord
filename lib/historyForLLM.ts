@@ -1,5 +1,6 @@
 import { getSetsForWorkout, listRecentWorkouts } from "@/lib/db";
 import { getExerciseById } from "@/lib/exercises";
+import { loadAllWorkoutsWithVolume } from "@/lib/stats";
 export type SessionSummary = {
   startedAt: number;
   startedAtIso: string;
@@ -56,4 +57,48 @@ export async function buildRecentSessionSummaries(
   }
 
   return out;
+}
+
+/** 種目ごとの「直近その種目を記録したセッション」のセット一覧（提案精度用） */
+export type ExerciseLatestSnapshot = {
+  exerciseId: string;
+  name: string;
+  sessionStartedAtIso: string;
+  daysAgo: number;
+  sets: { weightKg: number; reps: number }[];
+};
+
+export async function buildPerExerciseLatestSnapshots(): Promise<
+  ExerciseLatestSnapshot[]
+> {
+  const workouts = await loadAllWorkoutsWithVolume();
+  const now = Date.now();
+  const seen = new Map<string, (typeof workouts)[0]>();
+
+  for (const w of workouts) {
+    const ids = new Set(w.sets.map((s) => s.exerciseId));
+    for (const id of ids) {
+      if (!seen.has(id)) seen.set(id, w);
+    }
+  }
+
+  const between = (fromMs: number) =>
+    Math.floor((now - fromMs) / (24 * 60 * 60 * 1000));
+
+  return [...seen.entries()]
+    .map(([exerciseId, w]) => {
+      const subs = w.sets.filter((s) => s.exerciseId === exerciseId);
+      const sorted = [...subs].sort((a, b) => a.order - b.order);
+      return {
+        exerciseId,
+        name: getExerciseById(exerciseId)?.name ?? exerciseId,
+        sessionStartedAtIso: new Date(w.startedAt).toISOString(),
+        daysAgo: between(w.startedAt),
+        sets: sorted.map((s) => ({
+          weightKg: s.weightKg,
+          reps: s.reps,
+        })),
+      };
+    })
+    .sort((a, b) => a.name.localeCompare(b.name, "ja"));
 }

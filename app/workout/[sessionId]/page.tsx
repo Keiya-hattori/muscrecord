@@ -6,5 +6,10 @@ type PageProps = {
 
 export default async function WorkoutSessionPage(props: PageProps) {
   const params = await props.params;
-  return <WorkoutSessionClient workoutId={params.sessionId} />;
+  return (
+    <WorkoutSessionClient
+      key={params.sessionId}
+      workoutId={params.sessionId}
+    />
+  );
 }

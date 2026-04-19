@@ -1,12 +1,13 @@
 "use client";
 
 import { useLiveQuery } from "dexie-react-hooks";
-import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { ExercisePicker } from "@/components/ExercisePicker";
+import { AppNav } from "@/components/AppNav";
 import { SessionExercisePanel } from "@/components/SessionExercisePanel";
 import { db, getLastSetForExerciseBefore } from "@/lib/db";
 import { getExerciseById } from "@/lib/exercises";
+import { workoutSelectedStorageKey } from "@/lib/uiPersist";
 
 type Props = {
   workoutId: string;
@@ -42,6 +43,32 @@ export function WorkoutSessionClient({ workoutId }: Props) {
     return order;
   }, [setsInSession]);
 
+  const persistSelected = useCallback(
+    (id: string) => {
+      try {
+        sessionStorage.setItem(workoutSelectedStorageKey(workoutId), id);
+      } catch {
+        /* プライベートモード等 */
+      }
+    },
+    [workoutId],
+  );
+
+  useLayoutEffect(() => {
+    if (typeof window === "undefined") return;
+    const key = workoutSelectedStorageKey(workoutId);
+    const v = sessionStorage.getItem(key);
+    setSelectedId(v && v.length > 0 ? v : null);
+  }, [workoutId]);
+
+  const pickExercise = useCallback(
+    (exerciseId: string) => {
+      setSelectedId(exerciseId);
+      persistSelected(exerciseId);
+    },
+    [persistSelected],
+  );
+
   useEffect(() => {
     if (!selectedId) {
       setLastPrev(null);
@@ -59,10 +86,6 @@ export function WorkoutSessionClient({ workoutId }: Props) {
     };
   }, [selectedId, workoutId]);
 
-  function handlePick(exerciseId: string) {
-    setSelectedId(exerciseId);
-  }
-
   const countByExercise = useMemo(() => {
     const m = new Map<string, number>();
     for (const r of setsInSession ?? []) {
@@ -72,14 +95,10 @@ export function WorkoutSessionClient({ workoutId }: Props) {
   }, [setsInSession]);
 
   return (
-    <div className="mx-auto flex max-w-4xl flex-col gap-10 px-4 py-8">
+    <div className="min-h-screen">
+      <AppNav />
+      <div className="mx-auto flex max-w-4xl flex-col gap-10 px-4 py-8">
       <header className="flex flex-wrap items-center justify-between gap-4">
-        <Link
-          href="/"
-          className="text-sm font-medium text-blue-600 hover:underline dark:text-blue-400"
-        >
-          ← ホーム
-        </Link>
         <p className="text-xs text-zinc-500 dark:text-zinc-400">
           種目タップで選択 → セットを記録
         </p>
@@ -89,7 +108,7 @@ export function WorkoutSessionClient({ workoutId }: Props) {
         <h2 className="mb-4 text-xl font-bold text-zinc-900 dark:text-zinc-50">
           種目を選ぶ
         </h2>
-        <ExercisePicker onPick={handlePick} selectedId={selectedId} />
+        <ExercisePicker onPick={pickExercise} selectedId={selectedId} />
       </section>
 
       {selectedId && (
@@ -110,7 +129,7 @@ export function WorkoutSessionClient({ workoutId }: Props) {
               <button
                 key={id}
                 type="button"
-                onClick={() => setSelectedId(id)}
+                onClick={() => pickExercise(id)}
                 className={`rounded-full px-4 py-2 text-sm font-medium transition ${
                   selectedId === id
                     ? "bg-blue-600 text-white"
@@ -126,6 +145,7 @@ export function WorkoutSessionClient({ workoutId }: Props) {
           </div>
         </section>
       )}
+      </div>
     </div>
   );
 }

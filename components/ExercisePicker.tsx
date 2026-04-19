@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import clsx from "clsx";
 import type { ExerciseCategory } from "@/lib/types";
 import {
@@ -9,6 +9,10 @@ import {
   getCategoryLabel,
   listCategories,
 } from "@/lib/exercises";
+import {
+  loadExercisePickerFromStorage,
+  saveExercisePickerToStorage,
+} from "@/lib/uiPersist";
 
 type Props = {
   /** 選択時（同じ種目でも呼ぶ） */
@@ -19,6 +23,21 @@ type Props = {
 export function ExercisePicker({ onPick, selectedId }: Props) {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<ExerciseCategory | "all">("all");
+  const [pickerReady, setPickerReady] = useState(false);
+
+  useEffect(() => {
+    const s = loadExercisePickerFromStorage();
+    if (s) {
+      setQuery(s.query);
+      setCategory(s.category);
+    }
+    setPickerReady(true);
+  }, []);
+
+  useEffect(() => {
+    if (!pickerReady) return;
+    saveExercisePickerToStorage({ query, category });
+  }, [query, category, pickerReady]);
 
   const filtered = useMemo(() => {
     let list = getAllExercises();
