@@ -129,42 +129,49 @@
     "id": "bicep_curl",
     "name": "アームカール",
     "category": "arms",
+    "armFocus": "bicep",
     "imagePath": "/exercises/bicep_curl.svg"
   },
   {
     "id": "incline_bicep_curl",
     "name": "インクラインアームカール",
     "category": "arms",
+    "armFocus": "bicep",
     "imagePath": "/exercises/bicep_curl.svg"
   },
   {
     "id": "lying_tricep_extension",
     "name": "ライイングエクステンション",
     "category": "arms",
+    "armFocus": "tricep",
     "imagePath": "/exercises/tricep_pushdown.svg"
   },
   {
     "id": "tricep_pushdown",
     "name": "プレスダウン",
     "category": "arms",
+    "armFocus": "tricep",
     "imagePath": "/exercises/tricep_pushdown.svg"
   },
   {
     "id": "hammer_curl",
     "name": "ハンマーカール",
     "category": "arms",
+    "armFocus": "bicep",
     "imagePath": "/exercises/hammer_curl.svg"
   },
   {
     "id": "skull_crusher",
     "name": "スカルクラッシャー",
     "category": "arms",
+    "armFocus": "tricep",
     "imagePath": "/exercises/skull_crusher.svg"
   },
   {
     "id": "preacher_curl",
     "name": "プリーチャーカール",
     "category": "arms",
+    "armFocus": "bicep",
     "imagePath": "/exercises/preacher_curl.svg"
   },
   {

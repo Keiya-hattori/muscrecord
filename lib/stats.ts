@@ -15,6 +15,12 @@ export function formatDateLabel(dateKey: string): string {
   return `${mo}月${da}日`;
 }
 
+/** 日付を1通りに表示（種目別記録などで重複表示を避ける） */
+export function formatDateFullJa(dateKey: string): string {
+  const [y, mo, da] = dateKey.split("-").map(Number);
+  return `${y}年${mo}月${da}日`;
+}
+
 export type WorkoutWithVolume = WorkoutSessionRow & {
   sets: WorkoutSetRow[];
   volume: number;
@@ -37,11 +43,15 @@ export async function loadAllWorkoutsWithVolume(): Promise<WorkoutWithVolume[]> 
   return out;
 }
 
-/** 種目ごとに、その日付のセット数（同一日に複数セッションがあれば合算） */
+/** 種目ごとに、その日付のセットとボリューム（同一日に複数セッションがあれば合算） */
 export type ExerciseDayRow = {
   dateKey: string;
   dateLabel: string;
   setCount: number;
+  /** 総ボリューム（kg）= Σ(重量×回数) */
+  volumeKg: number;
+  /** 当種目で「その日」のボリュームが過去最大とタイ（かつ0より大きい） */
+  isPersonalBestVolume: boolean;
 };
 
 export type ExerciseHistoryGroup = {
@@ -50,36 +60,56 @@ export type ExerciseHistoryGroup = {
   days: ExerciseDayRow[];
 };
 
-/** 種目別に、日付とセット数の一覧（新しい順） */
+/** 種目別に、日付・セット数・総ボリュームの一覧（新しい日付順）。種目の並びはトレーニング日数が多い順 */
 export async function groupHistoryByExercise(): Promise<ExerciseHistoryGroup[]> {
   const workouts = await loadAllWorkoutsWithVolume();
-  const byEx = new Map<string, Map<string, number>>();
+  const byEx = new Map<
+    string,
+    Map<string, { setCount: number; volumeKg: number }>
+  >();
 
   for (const w of workouts) {
     const dk = toDateKey(w.startedAt);
     for (const s of w.sets) {
-      const inner = byEx.get(s.exerciseId) ?? new Map<string, number>();
-      inner.set(dk, (inner.get(dk) ?? 0) + 1);
+      const inner =
+        byEx.get(s.exerciseId) ??
+        new Map<string, { setCount: number; volumeKg: number }>();
+      const cur = inner.get(dk) ?? { setCount: 0, volumeKg: 0 };
+      cur.setCount += 1;
+      cur.volumeKg += s.weightKg * s.reps;
+      inner.set(dk, cur);
       byEx.set(s.exerciseId, inner);
     }
   }
 
   const result: ExerciseHistoryGroup[] = [];
   for (const [exerciseId, dateMap] of byEx.entries()) {
-    const days = [...dateMap.entries()]
-      .sort((a, b) => (a[0] < b[0] ? 1 : -1))
-      .map(([dateKey, setCount]) => ({
-        dateKey,
-        dateLabel: formatDateLabel(dateKey),
-        setCount,
-      }));
+    const sortedEntries = [...dateMap.entries()].sort((a, b) =>
+      a[0] < b[0] ? 1 : -1,
+    );
+    const maxVol = Math.max(
+      0,
+      ...sortedEntries.map(([, agg]) => agg.volumeKg),
+    );
+
+    const days: ExerciseDayRow[] = sortedEntries.map(([dateKey, agg]) => ({
+      dateKey,
+      dateLabel: formatDateLabel(dateKey),
+      setCount: agg.setCount,
+      volumeKg: agg.volumeKg,
+      isPersonalBestVolume: agg.volumeKg > 0 && agg.volumeKg === maxVol,
+    }));
     result.push({ exerciseId, days });
   }
 
+  /** トレーニング頻度（記録した日数）が高い順 → 総ボリューム多い順 */
   result.sort((a, b) => {
-    const ad = a.days[0]?.dateKey ?? "";
-    const bd = b.days[0]?.dateKey ?? "";
-    if (ad !== bd) return ad < bd ? 1 : -1;
+    const fa = a.days.length;
+    const fb = b.days.length;
+    if (fa !== fb) return fb - fa;
+    const va = a.days.reduce((s, d) => s + d.volumeKg, 0);
+    const vb = b.days.reduce((s, d) => s + d.volumeKg, 0);
+    if (va !== vb) return vb - va;
     return a.exerciseId.localeCompare(b.exerciseId);
   });
 

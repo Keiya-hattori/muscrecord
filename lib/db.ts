@@ -1,11 +1,13 @@
 import Dexie, { type EntityTable } from "dexie";
 import type { WorkoutSessionRow, WorkoutSetRow } from "@/lib/types";
+import type { PendingLlmMenuPayload } from "@/lib/pendingLlmMenu";
+import { parsePendingMenuJson } from "@/lib/pendingLlmMenu";
 import { localDateKeyFromMs } from "@/lib/dateKey";
+import { getLocalSetting, setLocalSetting } from "@/lib/localSettings";
 
 class MuscleDB extends Dexie {
   workouts!: EntityTable<WorkoutSessionRow, "id">;
   sets!: EntityTable<WorkoutSetRow, "id">;
-  settings!: EntityTable<{ key: string; value: string }, "key">;
 
   constructor() {
     super("muscle-pwa-db");
@@ -27,6 +29,23 @@ class MuscleDB extends Dexie {
             row.sessionDate = localDateKeyFromMs(row.startedAt);
           }
         });
+      });
+    /** 設定は localStorage（muscrecord:setting:*）へ。IndexedDB の settings は廃止 */
+    this.version(3)
+      .stores({
+        workouts: "id, startedAt, sessionDate",
+        sets: "id, workoutId, exerciseId",
+      })
+      .upgrade(async (tx) => {
+        const t = tx.table("settings");
+        const rows = await t.toArray();
+        for (const row of rows as { key: string; value: string }[]) {
+          try {
+            setLocalSetting(row.key, row.value);
+          } catch {
+            /* ignore */
+          }
+        }
       });
   }
 }
@@ -147,6 +166,34 @@ export async function replaceSetsForWorkout(
   }
 }
 
+/** LLM 提案 ToDo。空ならフィールドを空文字にクリア（IndexedDB での削除互換） */
+export async function setWorkoutPendingLlmMenu(
+  workoutId: string,
+  payload: PendingLlmMenuPayload | null,
+): Promise<void> {
+  await db.workouts.update(workoutId, {
+    pendingLlmMenuJson:
+      payload && payload.rows.length > 0 ? JSON.stringify(payload) : "",
+  });
+}
+
+/** ToDo 行を記録済みに（行は一覧に残す） */
+export async function markPendingLlmRowApplied(
+  workoutId: string,
+  rowId: string,
+): Promise<void> {
+  const w = await db.workouts.get(workoutId);
+  const payload = parsePendingMenuJson(w?.pendingLlmMenuJson);
+  if (!payload) return;
+  const nextRows = payload.rows.map((r) =>
+    r.id === rowId ? { ...r, applied: true } : r,
+  );
+  await setWorkoutPendingLlmMenu(workoutId, {
+    ...payload,
+    rows: nextRows,
+  });
+}
+
 /** 同一種目について、現在のセッション以外で「直近」のワークアウトに記録された最終セット */
 export async function getLastSetForExerciseBefore(
   exerciseId: string,
@@ -177,11 +224,11 @@ export async function getLastSetForExerciseBefore(
   return inLatest[inLatest.length - 1];
 }
 
+/** 設定（localStorage）。SSR では undefined */
 export async function getSetting(key: string): Promise<string | undefined> {
-  const row = await db.settings.get(key);
-  return row?.value;
+  return Promise.resolve(getLocalSetting(key));
 }
 
 export async function setSetting(key: string, value: string): Promise<void> {
-  await db.settings.put({ key, value });
+  setLocalSetting(key, value);
 }

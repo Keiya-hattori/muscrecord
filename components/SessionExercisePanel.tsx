@@ -9,6 +9,10 @@ import {
   updateSet,
 } from "@/lib/db";
 import { getExerciseById } from "@/lib/exercises";
+import {
+  DEFAULT_REPS_FOR_NEW_SET,
+  getDefaultWeightKgForExercise,
+} from "@/lib/defaultWeightKg";
 import { ExerciseCover } from "@/components/ExerciseCover";
 import { StepChip } from "@/components/StepChip";
 
@@ -57,8 +61,12 @@ export function SessionExercisePanel({
   async function addEmptySet() {
     const order = await nextOrderForWorkout(workoutId);
     const lastInPanel = displaySets[displaySets.length - 1];
-    const weightKg = lastInPanel?.weightKg ?? lastFromPrevious?.weightKg ?? 20;
-    const reps = lastInPanel?.reps ?? lastFromPrevious?.reps ?? 10;
+    const weightKg =
+      lastInPanel?.weightKg ??
+      lastFromPrevious?.weightKg ??
+      getDefaultWeightKgForExercise(exerciseId);
+    const reps =
+      lastInPanel?.reps ?? lastFromPrevious?.reps ?? DEFAULT_REPS_FOR_NEW_SET;
     await addSet({
       workoutId,
       exerciseId,

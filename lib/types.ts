@@ -12,6 +12,8 @@ export type ExerciseMaster = {
   category: ExerciseCategory;
   /** public からのパス（先頭スラッシュ付き） */
   imagePath: string;
+  /** category が arms のとき、記録画面の二頭／三頭タブ分け用 */
+  armFocus?: "bicep" | "tricep";
 };
 
 export type WorkoutSessionRow = {
@@ -21,6 +23,11 @@ export type WorkoutSessionRow = {
   /** トレーニング日（ローカル暦・YYYY-MM-DD） */
   sessionDate: string;
   note?: string;
+  /**
+   * LLM 提案メニューを ToDo として保持（JSON: PendingLlmMenuPayload）。
+   * チェックでセット記録に移すまで本テーブルには入れない。
+   */
+  pendingLlmMenuJson?: string;
 };
 
 export type WorkoutSetRow = {

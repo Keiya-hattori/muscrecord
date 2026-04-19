@@ -1,36 +1,63 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# muscrecord（筋トレ記録 PWA）
 
-## Getting Started
+Next.js の PWA です。**ログインやユーザー認証はなく**、トレーニング記録は**各端末のブラウザ内**にだけ保存されます。
 
-First, run the development server:
+## 開発
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+ブラウザで [http://localhost:3000](http://localhost:3000) を開きます。
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+`.env.local` に `NEXT_PUBLIC_GEMINI_API_KEY` を設定すると「メニュー提案」が使えます（[.env.example](./.env.example) 参照）。
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## データの保存場所（重要）
 
-## Learn More
+| 種類 | 保存先 | 内容の例 |
+|------|--------|----------|
+| **記録** | **IndexedDB**（Dexie / DB 名 `muscle-pwa-db`） | ワークアウト、セット、LLM 提案 ToDo など |
+| **設定・キー値** | **localStorage**（キー `muscrecord:setting:*`） | メニュー提案用プロフィール等 |
+| **画面の一時状態** | **localStorage** | 提案画面のコンディション入力ドラフトなど |
 
-To learn more about Next.js, take a look at the following resources:
+- **データは端末・ブラウザごと**です。別の PC やスマホでは共有されません。
+- **プライベートモード**やストレージ削除で消えることがあります。
+- **設定 → データのバックアップ**から JSON のエクスポート／インポートができます。
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## メニュー提案（LLM）
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+「メニュー提案」は**ブラウザから Google Gemini** へ直接リクエストします。`NEXT_PUBLIC_GEMINI_API_KEY` が必要です。`NEXT_PUBLIC_` 付きのため、**ビルド成果物にキー文字列が含まれる**扱いです。公開リポジトリにコミットしないでください（GitHub では **Repository secrets** から CI のみに渡す想定）。
 
-## Deploy on Vercel
+## 本番ビルド
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+npm run build
+npm start
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## GitHub Pages で公開
+
+1. この `muscrecord` フォルダを（推奨）**リポジトリのルート**として GitHub に push する。  
+2. リポジトリ **Settings → Secrets and variables → Actions** に、シークレット名 **`GEMINI_API_KEY`** で Google AI の API キーを登録（メニュー提案用。未設定だと提案画面はエラーになるが、記録機能は使える）。  
+3. リポジトリ **Settings → Pages** で **Build and deployment** の **Source** を **GitHub Actions** にする。  
+4. `main`（または `master`）に push すると [`.github/workflows/github-pages.yml`](./.github/workflows/github-pages.yml) が走り、静的ファイルが `gh-pages` 相当の形でデプロイされる。  
+5. 公開 URL の形: **`https://<あなたのユーザー名>.github.io/<リポジトリ名>/`**  
+   初回は数分待つ。Actions の **Deploy** ジョブが成功したら、同画面の **View deployment** から URL を確認できる。
+
+`BASE_PATH` はリポジトリ名に合わせて CI 内で自動設定しています。  
+**モノレポ**で `muscrecord` がサブフォルダだけの場合は、ワークフローに `working-directory: muscrecord` を足し、`upload-pages-artifact` の `path` を `muscrecord/out` に合わせてください。
+
+### 静的エクスポート用のローカルビルド
+
+```bash
+# Windows PowerShell 例
+$env:GITHUB_PAGES="true"
+$env:BASE_PATH="/リポジトリ名"
+npm run build
+# 成果物は out/ フォルダ
+```
+
+## ライセンス
+
+プロジェクトに合わせて追記してください。

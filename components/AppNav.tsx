@@ -3,6 +3,7 @@ import clsx from "clsx";
 
 const links = [
   { href: "/", label: "ホーム" },
+  { href: "/suggest", label: "メニュー提案" },
   { href: "/history", label: "種目別記録" },
   { href: "/progress", label: "グラフ・称号" },
 ] as const;
