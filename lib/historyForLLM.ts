@@ -2,6 +2,8 @@ import { getSetsForWorkout, listRecentWorkouts } from "@/lib/db";
 import { getExerciseById } from "@/lib/exercises";
 export type SessionSummary = {
   startedAt: number;
+  /** トレーニング日 YYYY-MM-DD */
+  sessionDate: string;
   startedAtIso: string;
   daysAgo: number;
   exercises: {
@@ -49,6 +51,7 @@ export async function buildRecentSessionSummaries(
 
     out.push({
       startedAt: s.startedAt,
+      sessionDate: s.sessionDate,
       startedAtIso: new Date(s.startedAt).toISOString(),
       daysAgo: daysBetween(s.startedAt, now),
       exercises,

@@ -3,72 +3,180 @@
     "id": "bench_press",
     "name": "ベンチプレス",
     "category": "chest",
-    "imagePath": "/exercises/bench_press.png"
+    "imagePath": "/exercises/bench_press.svg"
   },
   {
-    "id": "squat",
-    "name": "スクワット",
-    "category": "legs",
-    "imagePath": "/exercises/squat.png"
+    "id": "incline_db_press",
+    "name": "インクラインダンベルプレス",
+    "category": "chest",
+    "imagePath": "/exercises/incline_db_press.svg"
   },
   {
-    "id": "deadlift",
-    "name": "デッドリフト",
-    "category": "legs",
-    "imagePath": "/exercises/deadlift.png"
+    "id": "cable_crossover",
+    "name": "ケーブルクロスオーバー",
+    "category": "chest",
+    "imagePath": "/exercises/cable_crossover.svg"
   },
   {
-    "id": "ohp",
-    "name": "オーバーヘッドプレス",
-    "category": "shoulders",
-    "imagePath": "/exercises/ohp.png"
+    "id": "pec_deck",
+    "name": "ペックデック",
+    "category": "chest",
+    "imagePath": "/exercises/pec_deck.svg"
+  },
+  {
+    "id": "pushup",
+    "name": "腕立て伏せ",
+    "category": "chest",
+    "imagePath": "/exercises/pushup.svg"
   },
   {
     "id": "barbell_row",
     "name": "ベントオーバーロウ",
     "category": "back",
-    "imagePath": "/exercises/barbell_row.png"
+    "imagePath": "/exercises/barbell_row.svg"
   },
   {
     "id": "lat_pulldown",
     "name": "ラットプルダウン",
     "category": "back",
-    "imagePath": "/exercises/lat_pulldown.png"
+    "imagePath": "/exercises/lat_pulldown.svg"
+  },
+  {
+    "id": "seated_cable_row",
+    "name": "シーテッドケーブルロウ",
+    "category": "back",
+    "imagePath": "/exercises/seated_cable_row.svg"
+  },
+  {
+    "id": "pull_up",
+    "name": "懸垂",
+    "category": "back",
+    "imagePath": "/exercises/pull_up.svg"
+  },
+  {
+    "id": "hyper_extension",
+    "name": "バックエクステンション",
+    "category": "back",
+    "imagePath": "/exercises/hyper_extension.svg"
+  },
+  {
+    "id": "squat",
+    "name": "スクワット",
+    "category": "legs",
+    "imagePath": "/exercises/squat.svg"
+  },
+  {
+    "id": "deadlift",
+    "name": "デッドリフト",
+    "category": "legs",
+    "imagePath": "/exercises/deadlift.svg"
   },
   {
     "id": "leg_press",
     "name": "レッグプレス",
     "category": "legs",
-    "imagePath": "/exercises/leg_press.png"
+    "imagePath": "/exercises/leg_press.svg"
   },
   {
     "id": "leg_curl",
     "name": "レッグカール",
     "category": "legs",
-    "imagePath": "/exercises/leg_curl.png"
+    "imagePath": "/exercises/leg_curl.svg"
   },
   {
-    "id": "bicep_curl",
-    "name": "ダンベルカール",
-    "category": "arms",
-    "imagePath": "/exercises/bicep_curl.png"
+    "id": "leg_extension",
+    "name": "レッグエクステンション",
+    "category": "legs",
+    "imagePath": "/exercises/leg_extension.svg"
   },
   {
-    "id": "tricep_pushdown",
-    "name": "プレスダウン",
-    "category": "arms",
-    "imagePath": "/exercises/tricep_pushdown.png"
+    "id": "ohp",
+    "name": "オーバーヘッドプレス",
+    "category": "shoulders",
+    "imagePath": "/exercises/ohp.svg"
   },
   {
     "id": "lateral_raise",
     "name": "サイドレイズ",
     "category": "shoulders",
-    "imagePath": "/exercises/lateral_raise.png"
+    "imagePath": "/exercises/lateral_raise.svg"
+  },
+  {
+    "id": "front_raise",
+    "name": "フロントレイズ",
+    "category": "shoulders",
+    "imagePath": "/exercises/front_raise.svg"
+  },
+  {
+    "id": "rear_delt_fly",
+    "name": "リアデルトフライ",
+    "category": "shoulders",
+    "imagePath": "/exercises/rear_delt_fly.svg"
+  },
+  {
+    "id": "upright_row",
+    "name": "アップライトロウ",
+    "category": "shoulders",
+    "imagePath": "/exercises/upright_row.svg"
+  },
+  {
+    "id": "bicep_curl",
+    "name": "ダンベルカール",
+    "category": "arms",
+    "imagePath": "/exercises/bicep_curl.svg"
+  },
+  {
+    "id": "tricep_pushdown",
+    "name": "プレスダウン",
+    "category": "arms",
+    "imagePath": "/exercises/tricep_pushdown.svg"
+  },
+  {
+    "id": "hammer_curl",
+    "name": "ハンマーカール",
+    "category": "arms",
+    "imagePath": "/exercises/hammer_curl.svg"
+  },
+  {
+    "id": "skull_crusher",
+    "name": "スカルクラッシャー",
+    "category": "arms",
+    "imagePath": "/exercises/skull_crusher.svg"
+  },
+  {
+    "id": "preacher_curl",
+    "name": "プリーチャーカール",
+    "category": "arms",
+    "imagePath": "/exercises/preacher_curl.svg"
   },
   {
     "id": "plank",
     "name": "プランク",
     "category": "core",
-    "imagePath": "/exercises/plank.png"
+    "imagePath": "/exercises/plank.svg"
+  },
+  {
+    "id": "crunch",
+    "name": "クランチ",
+    "category": "core",
+    "imagePath": "/exercises/crunch.svg"
+  },
+  {
+    "id": "hanging_leg_raise",
+    "name": "ハンギングレッグレイズ",
+    "category": "core",
+    "imagePath": "/exercises/hanging_leg_raise.svg"
+  },
+  {
+    "id": "cable_crunch",
+    "name": "ケーブルクランチ",
+    "category": "core",
+    "imagePath": "/exercises/cable_crunch.svg"
+  },
+  {
+    "id": "ab_wheel",
+    "name": "アブローラー",
+    "category": "core",
+    "imagePath": "/exercises/ab_wheel.svg"
   }
 ]

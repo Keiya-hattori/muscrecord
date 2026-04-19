@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { useMemo, useState } from "react";
 import clsx from "clsx";
 import type { ExerciseCategory } from "@/lib/types";
@@ -9,14 +8,24 @@ import {
   getCategoryLabel,
   listCategories,
 } from "@/lib/exercises";
+import { ExerciseCover } from "@/components/ExerciseCover";
 
-type Props = {
-  /** 選択時（同じ種目でも呼ぶ） */
+type SingleProps = {
+  mode?: "single";
   onPick: (exerciseId: string) => void;
   selectedId?: string | null;
 };
 
-export function ExercisePicker({ onPick, selectedId }: Props) {
+type MultiProps = {
+  mode: "multi";
+  selectedIds: ReadonlySet<string>;
+  onToggle: (exerciseId: string) => void;
+};
+
+type Props = SingleProps | MultiProps;
+
+export function ExercisePicker(props: Props) {
+  const isMulti = props.mode === "multi";
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<ExerciseCategory | "all">("all");
 
@@ -70,26 +79,31 @@ export function ExercisePicker({ onPick, selectedId }: Props) {
       </div>
 
       <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-        {filtered.map((ex) => (
-          <li key={ex.id}>
+        {filtered.map((ex) => {
+          const selectedSingle = !isMulti && props.selectedId === ex.id;
+          const selectedMulti = isMulti && props.selectedIds.has(ex.id);
+          const selected = selectedSingle || selectedMulti;
+          return (
+          <li key={ex.id} className="min-w-0">
             <button
               type="button"
-              onClick={() => onPick(ex.id)}
+              onClick={() =>
+                isMulti ? props.onToggle(ex.id) : props.onPick(ex.id)
+              }
               className={clsx(
-                "flex w-full flex-col overflow-hidden rounded-2xl border-2 text-left transition active:scale-[0.98]",
-                selectedId === ex.id
+                "relative flex w-full min-w-0 flex-col overflow-hidden rounded-2xl border-2 text-left transition active:scale-[0.98]",
+                selected
                   ? "border-blue-600 ring-2 ring-blue-500/30"
                   : "border-transparent bg-white shadow-md hover:border-blue-300 dark:bg-zinc-900 dark:hover:border-blue-600",
               )}
             >
-              <div className="relative aspect-square w-full bg-zinc-100 dark:bg-zinc-800">
-                <Image
-                  src={ex.imagePath}
-                  alt=""
-                  fill
-                  className="object-cover"
-                  sizes="(max-width:768px) 50vw, 25vw"
-                />
+              {isMulti && selectedMulti && (
+                <span className="absolute right-2 top-2 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 text-sm font-bold text-white shadow-md">
+                  ✓
+                </span>
+              )}
+              <div className="relative aspect-square w-full min-h-0 overflow-hidden bg-zinc-100 dark:bg-zinc-800">
+                <ExerciseCover exercise={ex} />
               </div>
               <span className="px-2 py-3 text-center text-sm font-semibold leading-tight text-zinc-900 dark:text-zinc-50">
                 {ex.name}
@@ -99,7 +113,8 @@ export function ExercisePicker({ onPick, selectedId }: Props) {
               </span>
             </button>
           </li>
-        ))}
+          );
+        })}
       </ul>
 
       {filtered.length === 0 && (

@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
 import {
-  createWorkout,
+  db,
+  getOrCreateWorkoutForSessionDate,
   getSetting,
   replaceSetsForWorkout,
 } from "@/lib/db";
@@ -12,26 +13,19 @@ import type { WorkoutSetRow } from "@/lib/types";
 import { buildRecentSessionSummaries } from "@/lib/historyForLLM";
 import { getExerciseById } from "@/lib/exercises";
 import type { SuggestResponse } from "@/lib/suggestionSchema";
+import { todayLocalDateKey } from "@/lib/dateKey";
 
 export function HomeClient() {
   const router = useRouter();
+  const [sessionDate, setSessionDate] = useState(todayLocalDateKey);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [suggestion, setSuggestion] = useState<SuggestResponse | null>(null);
 
-  const startBlank = useCallback(async () => {
-    setBusy(true);
-    setErr(null);
-    try {
-      const id = await createWorkout();
-      router.push(`/workout/${id}`);
-    } catch {
-      setErr("セッションを開始できませんでした。");
-    } finally {
-      setBusy(false);
-    }
-  }, [router]);
+  const openDayRecord = useCallback(() => {
+    router.push(`/day/${sessionDate}`);
+  }, [router, sessionDate]);
 
   const requestSuggestion = useCallback(async () => {
     setBusy(true);
@@ -52,7 +46,9 @@ export function HomeClient() {
 
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setErr(typeof data.error === "string" ? data.error : "提案に失敗しました。");
+        setErr(
+          typeof data.error === "string" ? data.error : "提案に失敗しました。",
+        );
         return;
       }
 
@@ -70,7 +66,10 @@ export function HomeClient() {
     setBusy(true);
     setErr(null);
     try {
-      const workoutId = await createWorkout(`LLM提案: ${suggestion.title ?? ""}`);
+      const workoutId = await getOrCreateWorkoutForSessionDate(sessionDate);
+      await db.workouts.update(workoutId, {
+        note: `LLM提案: ${suggestion.title ?? ""}`,
+      });
       let order = 0;
       const rows: Omit<WorkoutSetRow, "id">[] = [];
       for (const item of suggestion.items) {
@@ -87,13 +86,13 @@ export function HomeClient() {
       await replaceSetsForWorkout(workoutId, rows);
       setModalOpen(false);
       setSuggestion(null);
-      router.push(`/workout/${workoutId}`);
+      router.push(`/day/${sessionDate}`);
     } catch {
       setErr("提案の取り込みに失敗しました。");
     } finally {
       setBusy(false);
     }
-  }, [router, suggestion]);
+  }, [router, sessionDate, suggestion]);
 
   return (
     <>
@@ -103,7 +102,7 @@ export function HomeClient() {
             筋トレ記録
           </h1>
           <p className="mt-2 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">
-            種目は画像からワンタップ。過去の記録は端末に保存され、今日のメニュー提案は「トレ開始」時だけサーバーへ送られます。
+            まず日付を選び、その日の画面で種目・重量・回数をセットごとに確定します。記録は端末に保存されます。
           </p>
         </div>
 
@@ -112,15 +111,38 @@ export function HomeClient() {
           LLM による提案は参考です。体調・痛みがあるときは無理せず、必要なら専門家に相談してください。
         </div>
 
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-4">
+          <div className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900">
+            <label
+              htmlFor="session-date"
+              className="block text-sm font-medium text-zinc-700 dark:text-zinc-300"
+            >
+              トレーニング日を選ぶ
+            </label>
+            <input
+              id="session-date"
+              type="date"
+              value={sessionDate}
+              onChange={(e) => setSessionDate(e.target.value)}
+              className="mt-2 w-full rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-base text-zinc-900 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-50"
+            />
+          </div>
+
           <button
             type="button"
             disabled={busy}
-            onClick={() => void startBlank()}
+            onClick={openDayRecord}
             className="rounded-2xl bg-blue-600 px-6 py-4 text-center text-lg font-semibold text-white shadow-lg hover:bg-blue-500 disabled:opacity-50"
           >
-            空のセッションでトレ開始
+            トレーニング記録
           </button>
+
+          <Link
+            href="/history"
+            className="rounded-2xl border border-zinc-200 bg-white px-6 py-3 text-center text-sm font-semibold text-zinc-800 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+          >
+            記録一覧（日付別）
+          </Link>
 
           <button
             type="button"
@@ -128,7 +150,7 @@ export function HomeClient() {
             onClick={() => void requestSuggestion()}
             className="rounded-2xl border-2 border-blue-600 bg-white px-6 py-4 text-center text-lg font-semibold text-blue-700 hover:bg-blue-50 disabled:opacity-50 dark:bg-zinc-900 dark:text-blue-300 dark:hover:bg-zinc-800"
           >
-            LLM に今日のメニューを提案してもらう
+            LLM にメニューを提案してもらう（上の日付の日）
           </button>
 
           <Link
@@ -167,7 +189,10 @@ export function HomeClient() {
                   </span>
                   <span className="text-zinc-500 dark:text-zinc-400">
                     {" "}
-                    — {item.sets.map((s) => `${s.weightKg}kg×${s.reps}`).join(" / ")}
+                    —{" "}
+                    {item.sets
+                      .map((s) => `${s.weightKg}kg×${s.reps}`)
+                      .join(" / ")}
                   </span>
                   {item.note && (
                     <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">
@@ -177,6 +202,10 @@ export function HomeClient() {
                 </li>
               ))}
             </ul>
+
+            <p className="mt-4 text-xs text-amber-800 dark:text-amber-200">
+              取り込むと、選択中の日付の記録がこの内容に置き換わります（既存セットは消えます）。
+            </p>
 
             <div className="mt-8 flex flex-col gap-2 sm:flex-row sm:justify-end">
               <button
@@ -195,7 +224,7 @@ export function HomeClient() {
                 className="rounded-xl bg-blue-600 px-6 py-3 text-sm font-semibold text-white hover:bg-blue-500 disabled:opacity-50"
                 onClick={() => void applySuggestion()}
               >
-                この内容で開始
+                この内容で日付に取り込む
               </button>
             </div>
           </div>

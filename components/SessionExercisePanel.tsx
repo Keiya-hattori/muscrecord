@@ -9,7 +9,8 @@ import {
   updateSet,
 } from "@/lib/db";
 import { getExerciseById } from "@/lib/exercises";
-import clsx from "clsx";
+import { ExerciseCover } from "@/components/ExerciseCover";
+import { StepChip } from "@/components/StepChip";
 
 type Props = {
   workoutId: string;
@@ -17,29 +18,6 @@ type Props = {
   /** 別セッションで同一種目に記録があったときのプリセット */
   lastFromPrevious?: { weightKg: number; reps: number } | null;
 };
-
-function StepChip({
-  label,
-  onClick,
-  className,
-}: {
-  label: string;
-  onClick: () => void;
-  className?: string;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={clsx(
-        "min-h-[44px] min-w-[44px] rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm font-semibold text-zinc-800 shadow-sm active:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 dark:active:bg-zinc-700",
-        className,
-      )}
-    >
-      {label}
-    </button>
-  );
-}
 
 export function SessionExercisePanel({
   workoutId,
@@ -95,9 +73,14 @@ export function SessionExercisePanel({
   return (
     <section className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <h3 className="text-lg font-bold text-zinc-900 dark:text-zinc-50">
-          {exercise.name}
-        </h3>
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-2xl border border-zinc-200 bg-zinc-100 dark:border-zinc-600 dark:bg-zinc-800">
+            <ExerciseCover exercise={exercise} imageSizes="56px" />
+          </div>
+          <h3 className="text-lg font-bold text-zinc-900 dark:text-zinc-50">
+            {exercise.name}
+          </h3>
+        </div>
         <div className="flex flex-wrap gap-2">
           {lastFromPrevious && (
             <button
@@ -151,6 +134,14 @@ export function SessionExercisePanel({
                 </div>
                 <div className="flex flex-wrap justify-center gap-2">
                   <StepChip
+                    label="−10"
+                    onClick={() =>
+                      void updateSet(row.id, {
+                        weightKg: Math.max(0, row.weightKg - 10),
+                      })
+                    }
+                  />
+                  <StepChip
                     label="−5"
                     onClick={() =>
                       void updateSet(row.id, {
@@ -178,6 +169,12 @@ export function SessionExercisePanel({
                       void updateSet(row.id, { weightKg: row.weightKg + 5 })
                     }
                   />
+                  <StepChip
+                    label="+10"
+                    onClick={() =>
+                      void updateSet(row.id, { weightKg: row.weightKg + 10 })
+                    }
+                  />
                 </div>
               </div>
 
@@ -189,6 +186,22 @@ export function SessionExercisePanel({
                   {row.reps}
                 </div>
                 <div className="flex flex-wrap justify-center gap-2">
+                  <StepChip
+                    label="−10"
+                    onClick={() =>
+                      void updateSet(row.id, {
+                        reps: Math.max(0, row.reps - 10),
+                      })
+                    }
+                  />
+                  <StepChip
+                    label="−5"
+                    onClick={() =>
+                      void updateSet(row.id, {
+                        reps: Math.max(0, row.reps - 5),
+                      })
+                    }
+                  />
                   <StepChip
                     label="−1"
                     onClick={() =>
@@ -207,6 +220,12 @@ export function SessionExercisePanel({
                     label="+5"
                     onClick={() =>
                       void updateSet(row.id, { reps: row.reps + 5 })
+                    }
+                  />
+                  <StepChip
+                    label="+10"
+                    onClick={() =>
+                      void updateSet(row.id, { reps: row.reps + 10 })
                     }
                   />
                 </div>

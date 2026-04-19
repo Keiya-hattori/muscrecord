@@ -16,7 +16,10 @@ export type ExerciseMaster = {
 
 export type WorkoutSessionRow = {
   id: string;
+  /** セッション作成時刻（並び・「前回」参照に使用） */
   startedAt: number;
+  /** トレーニング日（ローカル暦・YYYY-MM-DD） */
+  sessionDate: string;
   note?: string;
 };
 

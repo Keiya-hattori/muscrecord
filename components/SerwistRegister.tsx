@@ -1,18 +1,15 @@
 "use client";
 
-import { SerwistProvider } from "@serwist/next/react";
+import type { ReactNode } from "react";
+import dynamic from "next/dynamic";
 
-export function SerwistRegister({ children }: { children: React.ReactNode }) {
-  const isProd = process.env.NODE_ENV === "production";
+const SerwistProd = dynamic(() => import("./SerwistRegister.prod"), {
+  ssr: true,
+});
 
-  return (
-    <SerwistProvider
-      swUrl="/sw.js"
-      register={isProd}
-      cacheOnNavigation={isProd}
-      reloadOnOnline={isProd}
-    >
-      {children}
-    </SerwistProvider>
-  );
+export function SerwistRegister({ children }: { children: ReactNode }) {
+  if (process.env.NODE_ENV !== "production") {
+    return <>{children}</>;
+  }
+  return <SerwistProd>{children}</SerwistProd>;
 }
