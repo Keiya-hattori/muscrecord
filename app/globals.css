@@ -31,3 +31,35 @@ body {
   background-position: 0 0, 0 0, 0 0;
   color: var(--foreground);
 }
+
+/*
+ * iOS Safari: native <input type="date"> の内側レイアウトが右寄りにはみ出すことがある。
+ * flex で編集領域を伸ばし、WebKit の datetime-edit を幅いっぱいに揃える。
+ * （Chrome のデバイスモードは Blink の UI のため再現しにくい）
+ */
+.date-input-native {
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.date-input-native::-webkit-datetime-edit {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0;
+  margin: 0;
+}
+
+.date-input-native::-webkit-datetime-edit-fields-wrapper {
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+}
+
+.date-input-native::-webkit-calendar-picker-indicator {
+  flex-shrink: 0;
+  margin-inline-start: 0.25rem;
+}

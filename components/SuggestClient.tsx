@@ -155,7 +155,7 @@ export function SuggestClient() {
             type="date"
             value={sessionDate}
             onChange={(e) => setSessionDate(e.target.value)}
-            className="mt-2 box-border w-full min-w-0 max-w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-3 text-base text-zinc-900 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-50 sm:px-4"
+            className="date-input-native mt-2 box-border w-full min-w-0 max-w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-3 text-base text-zinc-900 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-50 sm:px-4"
           />
         </div>
 
