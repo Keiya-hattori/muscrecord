@@ -1,12 +1,14 @@
 "use client";
 
-import { useLiveQuery } from "dexie-react-hooks";
-import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useLiveQuery } from "dexie-react-hooks";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { ExercisePicker } from "@/components/ExercisePicker";
+import { AppNav } from "@/components/AppNav";
 import { SessionExercisePanel } from "@/components/SessionExercisePanel";
 import { db, getLastSetForExerciseBefore, updateWorkoutSessionDate } from "@/lib/db";
 import { getExerciseById } from "@/lib/exercises";
+import { workoutSelectedStorageKey } from "@/lib/uiPersist";
 
 type Props = {
   workoutId: string;
@@ -43,6 +45,32 @@ export function WorkoutSessionClient({ workoutId }: Props) {
     return order;
   }, [setsInSession]);
 
+  const persistSelected = useCallback(
+    (id: string) => {
+      try {
+        sessionStorage.setItem(workoutSelectedStorageKey(workoutId), id);
+      } catch {
+        /* プライベートモード等 */
+      }
+    },
+    [workoutId],
+  );
+
+  useLayoutEffect(() => {
+    if (typeof window === "undefined") return;
+    const key = workoutSelectedStorageKey(workoutId);
+    const v = sessionStorage.getItem(key);
+    setSelectedId(v && v.length > 0 ? v : null);
+  }, [workoutId]);
+
+  const pickExercise = useCallback(
+    (exerciseId: string) => {
+      setSelectedId(exerciseId);
+      persistSelected(exerciseId);
+    },
+    [persistSelected],
+  );
+
   useEffect(() => {
     if (!selectedId) {
       setLastPrev(null);
@@ -60,10 +88,6 @@ export function WorkoutSessionClient({ workoutId }: Props) {
     };
   }, [selectedId, workoutId]);
 
-  function handlePick(exerciseId: string) {
-    setSelectedId(exerciseId);
-  }
-
   const countByExercise = useMemo(() => {
     const m = new Map<string, number>();
     for (const r of setsInSession ?? []) {
@@ -73,82 +97,85 @@ export function WorkoutSessionClient({ workoutId }: Props) {
   }, [setsInSession]);
 
   return (
-    <div className="mx-auto flex max-w-4xl flex-col gap-10 px-4 py-8">
-      <header className="flex flex-col gap-4">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <Link
-            href="/"
-            className="text-sm font-medium text-blue-600 hover:underline dark:text-blue-400"
-          >
-            ← ホーム
-          </Link>
-          <p className="text-xs text-zinc-500 dark:text-zinc-400">
-            種目タップで選択 → セットを記録
-          </p>
-        </div>
-
-        {workout && (
-          <div className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900">
-            <label
-              htmlFor="workout-session-date"
-              className="text-sm font-medium text-zinc-700 dark:text-zinc-300"
+    <div className="min-h-screen">
+      <AppNav />
+      <div className="mx-auto flex max-w-4xl flex-col gap-10 px-4 py-8">
+        <header className="flex flex-col gap-4">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <Link
+              href="/"
+              className="text-sm font-medium text-blue-600 hover:underline dark:text-blue-400"
             >
-              トレーニング日
-            </label>
-            <input
-              id="workout-session-date"
-              type="date"
-              value={workout.sessionDate}
-              onChange={(e) =>
-                void updateWorkoutSessionDate(workoutId, e.target.value)
-              }
-              className="mt-2 w-full max-w-xs rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-2 text-base text-zinc-900 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-50"
-            />
+              ← ホーム
+            </Link>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+              種目タップで選択 → セットを記録
+            </p>
           </div>
-        )}
-      </header>
 
-      <section>
-        <h2 className="mb-4 text-xl font-bold text-zinc-900 dark:text-zinc-50">
-          種目を選ぶ
-        </h2>
-        <ExercisePicker onPick={handlePick} selectedId={selectedId} />
-      </section>
-
-      {selectedId && (
-        <SessionExercisePanel
-          workoutId={workoutId}
-          exerciseId={selectedId}
-          lastFromPrevious={lastPrev}
-        />
-      )}
-
-      {exercisesWithSets.length > 0 && (
-        <section>
-          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-            このセッションの種目
-          </h3>
-          <div className="flex flex-wrap gap-2">
-            {exercisesWithSets.map((id) => (
-              <button
-                key={id}
-                type="button"
-                onClick={() => setSelectedId(id)}
-                className={`rounded-full px-4 py-2 text-sm font-medium transition ${
-                  selectedId === id
-                    ? "bg-blue-600 text-white"
-                    : "bg-zinc-200 text-zinc-800 hover:bg-zinc-300 dark:bg-zinc-700 dark:text-zinc-100 dark:hover:bg-zinc-600"
-                }`}
+          {workout && (
+            <div className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900">
+              <label
+                htmlFor="workout-session-date"
+                className="text-sm font-medium text-zinc-700 dark:text-zinc-300"
               >
-                {getExerciseById(id)?.name ?? id}{" "}
-                <span className="tabular-nums opacity-80">
-                  ({countByExercise.get(id) ?? 0})
-                </span>
-              </button>
-            ))}
-          </div>
+                トレーニング日
+              </label>
+              <input
+                id="workout-session-date"
+                type="date"
+                value={workout.sessionDate}
+                onChange={(e) =>
+                  void updateWorkoutSessionDate(workoutId, e.target.value)
+                }
+                className="mt-2 w-full max-w-xs rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-2 text-base text-zinc-900 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-50"
+              />
+            </div>
+          )}
+        </header>
+
+        <section>
+          <h2 className="mb-4 text-xl font-bold text-zinc-900 dark:text-zinc-50">
+            種目を選ぶ
+          </h2>
+          <ExercisePicker onPick={pickExercise} selectedId={selectedId} />
         </section>
-      )}
+
+        {selectedId && (
+          <SessionExercisePanel
+            workoutId={workoutId}
+            exerciseId={selectedId}
+            lastFromPrevious={lastPrev}
+          />
+        )}
+
+        {exercisesWithSets.length > 0 && (
+          <section>
+            <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+              このセッションの種目
+            </h3>
+            <div className="flex flex-wrap gap-2">
+              {exercisesWithSets.map((id) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => pickExercise(id)}
+                  className={`rounded-full px-4 py-2 text-sm font-medium transition ${
+                    selectedId === id
+                      ? "bg-blue-600 text-white"
+                      : "bg-zinc-200 text-zinc-800 hover:bg-zinc-300 dark:bg-zinc-700 dark:text-zinc-100 dark:hover:bg-zinc-600"
+                  }`}
+                >
+                  {getExerciseById(id)?.name ?? id}{" "}
+                  <span className="tabular-nums opacity-80">
+                    ({countByExercise.get(id) ?? 0})
+                  </span>
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
+      </div>
     </div>
   );
 }

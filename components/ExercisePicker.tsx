@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import clsx from "clsx";
 import type { ExerciseCategory } from "@/lib/types";
 import {
@@ -9,6 +9,10 @@ import {
   listCategories,
 } from "@/lib/exercises";
 import { ExerciseCover } from "@/components/ExerciseCover";
+import {
+  loadExercisePickerFromStorage,
+  saveExercisePickerToStorage,
+} from "@/lib/uiPersist";
 
 type SingleProps = {
   mode?: "single";
@@ -28,13 +32,27 @@ export function ExercisePicker(props: Props) {
   const isMulti = props.mode === "multi";
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<ExerciseCategory | "all">("all");
+  const [pickerReady, setPickerReady] = useState(false);
+
+  useEffect(() => {
+    const s = loadExercisePickerFromStorage();
+    if (s) {
+      setQuery(s.query);
+      setCategory(s.category);
+    }
+    setPickerReady(true);
+  }, []);
+
+  useEffect(() => {
+    if (!pickerReady) return;
+    saveExercisePickerToStorage({ query, category });
+  }, [query, category, pickerReady]);
 
   const filtered = useMemo(() => {
     let list = getAllExercises();
     if (category !== "all") list = list.filter((e) => e.category === category);
     const q = query.trim().toLowerCase();
-    if (q)
-      list = list.filter((e) => e.name.toLowerCase().includes(q));
+    if (q) list = list.filter((e) => e.name.toLowerCase().includes(q));
     return list;
   }, [category, query]);
 
@@ -84,35 +102,35 @@ export function ExercisePicker(props: Props) {
           const selectedMulti = isMulti && props.selectedIds.has(ex.id);
           const selected = selectedSingle || selectedMulti;
           return (
-          <li key={ex.id} className="min-w-0">
-            <button
-              type="button"
-              onClick={() =>
-                isMulti ? props.onToggle(ex.id) : props.onPick(ex.id)
-              }
-              className={clsx(
-                "relative flex w-full min-w-0 flex-col overflow-hidden rounded-2xl border-2 text-left transition active:scale-[0.98]",
-                selected
-                  ? "border-blue-600 ring-2 ring-blue-500/30"
-                  : "border-transparent bg-white shadow-md hover:border-blue-300 dark:bg-zinc-900 dark:hover:border-blue-600",
-              )}
-            >
-              {isMulti && selectedMulti && (
-                <span className="absolute right-2 top-2 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 text-sm font-bold text-white shadow-md">
-                  ✓
+            <li key={ex.id} className="min-w-0">
+              <button
+                type="button"
+                onClick={() =>
+                  isMulti ? props.onToggle(ex.id) : props.onPick(ex.id)
+                }
+                className={clsx(
+                  "relative flex w-full min-w-0 flex-col overflow-hidden rounded-2xl border-2 text-left transition active:scale-[0.98]",
+                  selected
+                    ? "border-blue-600 ring-2 ring-blue-500/30"
+                    : "border-transparent bg-white shadow-md hover:border-blue-300 dark:bg-zinc-900 dark:hover:border-blue-600",
+                )}
+              >
+                {isMulti && selectedMulti && (
+                  <span className="absolute right-2 top-2 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 text-sm font-bold text-white shadow-md">
+                    ✓
+                  </span>
+                )}
+                <div className="relative aspect-square w-full min-h-0 overflow-hidden bg-zinc-100 dark:bg-zinc-800">
+                  <ExerciseCover exercise={ex} />
+                </div>
+                <span className="px-2 py-3 text-center text-sm font-semibold leading-tight text-zinc-900 dark:text-zinc-50">
+                  {ex.name}
                 </span>
-              )}
-              <div className="relative aspect-square w-full min-h-0 overflow-hidden bg-zinc-100 dark:bg-zinc-800">
-                <ExerciseCover exercise={ex} />
-              </div>
-              <span className="px-2 py-3 text-center text-sm font-semibold leading-tight text-zinc-900 dark:text-zinc-50">
-                {ex.name}
-              </span>
-              <span className="pb-2 text-center text-xs text-zinc-500 dark:text-zinc-400">
-                {getCategoryLabel(ex.category)}
-              </span>
-            </button>
-          </li>
+                <span className="pb-2 text-center text-xs text-zinc-500 dark:text-zinc-400">
+                  {getCategoryLabel(ex.category)}
+                </span>
+              </button>
+            </li>
           );
         })}
       </ul>

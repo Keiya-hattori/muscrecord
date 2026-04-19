@@ -1,6 +1,6 @@
 import Dexie, { type EntityTable } from "dexie";
 import type { WorkoutSessionRow, WorkoutSetRow } from "@/lib/types";
-import { localDateKeyFromMs, todayLocalDateKey } from "@/lib/dateKey";
+import { localDateKeyFromMs } from "@/lib/dateKey";
 
 class MuscleDB extends Dexie {
   workouts!: EntityTable<WorkoutSessionRow, "id">;
@@ -37,19 +37,29 @@ export function newId(): string {
   return crypto.randomUUID();
 }
 
-export async function createWorkout(
+/** 過去日時のセッション（サンプルデータ等）用 */
+export async function createWorkoutWithStartedAt(
+  startedAt: number,
   note?: string,
   sessionDateKey?: string,
 ): Promise<string> {
   const id = newId();
-  const sessionDate = sessionDateKey?.trim() || todayLocalDateKey();
+  const sessionDate =
+    sessionDateKey?.trim() || localDateKeyFromMs(startedAt);
   await db.workouts.add({
     id,
-    startedAt: Date.now(),
+    startedAt,
     sessionDate,
     note,
   });
   return id;
+}
+
+export async function createWorkout(
+  note?: string,
+  sessionDateKey?: string,
+): Promise<string> {
+  return createWorkoutWithStartedAt(Date.now(), note, sessionDateKey);
 }
 
 /**
