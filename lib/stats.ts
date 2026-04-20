@@ -1,6 +1,8 @@
 import { addDaysToDateKey, todayLocalDateKey } from "@/lib/dateKey";
-import { db } from "@/lib/db";
+import { db, getSetting } from "@/lib/db";
+import { effectiveSetVolumeKg } from "@/lib/effectiveVolume";
 import type { WorkoutSessionRow, WorkoutSetRow } from "@/lib/types";
+import { parseUserProfileJson } from "@/lib/userProfile";
 
 /** ローカル日付キー YYYY-MM-DD */
 export function toDateKey(ms: number): string {
@@ -28,12 +30,22 @@ export type WorkoutWithVolume = WorkoutSessionRow & {
   setCount: number;
 };
 
+async function loadBodyWeightKg(): Promise<number | null> {
+  const rawProfile = await getSetting("userProfile");
+  return parseUserProfileJson(rawProfile).bodyWeightKg;
+}
+
 export async function loadAllWorkoutsWithVolume(): Promise<WorkoutWithVolume[]> {
+  const bodyWeightKg = await loadBodyWeightKg();
   const sessions = await db.workouts.orderBy("startedAt").reverse().toArray();
   const out: WorkoutWithVolume[] = [];
   for (const w of sessions) {
     const sets = await db.sets.where("workoutId").equals(w.id).toArray();
-    const volume = sets.reduce((a, s) => a + s.weightKg * s.reps, 0);
+    const volume = sets.reduce(
+      (a, s) =>
+        a + effectiveSetVolumeKg(s.exerciseId, s.weightKg, s.reps, bodyWeightKg),
+      0,
+    );
     out.push({
       ...w,
       sets,
@@ -63,6 +75,7 @@ export type ExerciseHistoryGroup = {
 
 /** 種目別に、日付・セット数・総ボリュームの一覧（新しい日付順）。種目の並びはトレーニング日数が多い順 */
 export async function groupHistoryByExercise(): Promise<ExerciseHistoryGroup[]> {
+  const bodyWeightKg = await loadBodyWeightKg();
   const workouts = await loadAllWorkoutsWithVolume();
   const byEx = new Map<
     string,
@@ -77,7 +90,12 @@ export async function groupHistoryByExercise(): Promise<ExerciseHistoryGroup[]> 
         new Map<string, { setCount: number; volumeKg: number }>();
       const cur = inner.get(dk) ?? { setCount: 0, volumeKg: 0 };
       cur.setCount += 1;
-      cur.volumeKg += s.weightKg * s.reps;
+      cur.volumeKg += effectiveSetVolumeKg(
+        s.exerciseId,
+        s.weightKg,
+        s.reps,
+        bodyWeightKg,
+      );
       inner.set(dk, cur);
       byEx.set(s.exerciseId, inner);
     }

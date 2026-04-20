@@ -13,6 +13,7 @@ import {
   DEFAULT_REPS_FOR_NEW_SET,
   getDefaultWeightKgForExercise,
 } from "@/lib/defaultWeightKg";
+import { snapWeightToStepKg } from "@/lib/recordBodyTabs";
 import { ExerciseCover } from "@/components/ExerciseCover";
 import { StepChip } from "@/components/StepChip";
 
@@ -53,7 +54,7 @@ export function SessionExercisePanel({
       workoutId,
       exerciseId,
       order,
-      weightKg: lastFromPrevious.weightKg,
+      weightKg: snapWeightToStepKg(lastFromPrevious.weightKg, exerciseId),
       reps: lastFromPrevious.reps,
     });
   }
@@ -71,7 +72,7 @@ export function SessionExercisePanel({
       workoutId,
       exerciseId,
       order,
-      weightKg,
+      weightKg: snapWeightToStepKg(weightKg, exerciseId),
       reps,
     });
   }
@@ -145,7 +146,7 @@ export function SessionExercisePanel({
                     label="−10"
                     onClick={() =>
                       void updateSet(row.id, {
-                        weightKg: Math.max(0, row.weightKg - 10),
+                        weightKg: snapWeightToStepKg(row.weightKg - 10, exerciseId),
                       })
                     }
                   />
@@ -153,7 +154,7 @@ export function SessionExercisePanel({
                     label="−5"
                     onClick={() =>
                       void updateSet(row.id, {
-                        weightKg: Math.max(0, row.weightKg - 5),
+                        weightKg: snapWeightToStepKg(row.weightKg - 5, exerciseId),
                       })
                     }
                   />
@@ -161,26 +162,32 @@ export function SessionExercisePanel({
                     label="−2.5"
                     onClick={() =>
                       void updateSet(row.id, {
-                        weightKg: Math.max(0, row.weightKg - 2.5),
+                        weightKg: snapWeightToStepKg(row.weightKg - 2.5, exerciseId),
                       })
                     }
                   />
                   <StepChip
                     label="+2.5"
                     onClick={() =>
-                      void updateSet(row.id, { weightKg: row.weightKg + 2.5 })
+                      void updateSet(row.id, {
+                        weightKg: snapWeightToStepKg(row.weightKg + 2.5, exerciseId),
+                      })
                     }
                   />
                   <StepChip
                     label="+5"
                     onClick={() =>
-                      void updateSet(row.id, { weightKg: row.weightKg + 5 })
+                      void updateSet(row.id, {
+                        weightKg: snapWeightToStepKg(row.weightKg + 5, exerciseId),
+                      })
                     }
                   />
                   <StepChip
                     label="+10"
                     onClick={() =>
-                      void updateSet(row.id, { weightKg: row.weightKg + 10 })
+                      void updateSet(row.id, {
+                        weightKg: snapWeightToStepKg(row.weightKg + 10, exerciseId),
+                      })
                     }
                   />
                 </div>

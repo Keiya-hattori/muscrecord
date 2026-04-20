@@ -1,4 +1,5 @@
 import { snapWeightToStepKg } from "@/lib/recordBodyTabs";
+import { loadExerciseCatalog } from "@/lib/exerciseCatalog";
 
 /**
  * 筋トレ約2年・中級者想定の「まず置く」デフォルト重量（kg）。
@@ -42,8 +43,20 @@ const DEFAULT_KG_BY_EXERCISE: Record<string, number> = {
 
 export const DEFAULT_REPS_FOR_NEW_SET = 8;
 
-export function getDefaultWeightKgForExercise(exerciseId: string): number {
+export function getBaseDefaultWeightKgForExercise(exerciseId: string): number {
   const raw = DEFAULT_KG_BY_EXERCISE[exerciseId];
-  if (raw !== undefined) return snapWeightToStepKg(raw);
-  return snapWeightToStepKg(40);
+  if (raw !== undefined) return snapWeightToStepKg(raw, exerciseId);
+  return snapWeightToStepKg(40, exerciseId);
+}
+
+export function getDefaultWeightKgForExercise(exerciseId: string): number {
+  if (typeof window === "undefined") {
+    return getBaseDefaultWeightKgForExercise(exerciseId);
+  }
+  const state = loadExerciseCatalog();
+  const overridden = state.defaultWeightKgById[exerciseId];
+  if (typeof overridden === "number" && Number.isFinite(overridden)) {
+    return snapWeightToStepKg(overridden, exerciseId);
+  }
+  return getBaseDefaultWeightKgForExercise(exerciseId);
 }

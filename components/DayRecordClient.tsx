@@ -14,6 +14,7 @@ import {
   addSet,
   db,
   getOrCreateWorkoutForSessionDate,
+  getSetting,
   markPendingLlmRowApplied,
   nextOrderForWorkout,
   removeSet,
@@ -36,8 +37,8 @@ import {
 import {
   RECORD_BODY_TABS,
   REP_SELECT_OPTIONS,
-  WEIGHT_SELECT_OPTIONS,
   exercisesForRecordTab,
+  getWeightSelectOptionsForExercise,
   recordTabForExercise,
   snapWeightToStepKg,
   type RecordBodyTabId,
@@ -49,6 +50,7 @@ import {
   totalVolumeKg,
   volumeByExerciseInSets,
 } from "@/lib/dayRecordAchievements";
+import { parseUserProfileJson } from "@/lib/userProfile";
 import type { WorkoutSetRow } from "@/lib/types";
 
 type Props = {
@@ -90,6 +92,7 @@ export function DayRecordClient({ dateKey }: Props) {
   const [err, setErr] = useState<string | null>(null);
   const [suggestTodoOpen, setSuggestTodoOpen] = useState(true);
   const [editingSetId, setEditingSetId] = useState<string | null>(null);
+  const [editingExerciseId, setEditingExerciseId] = useState<string | null>(null);
   const [editWeightKg, setEditWeightKg] = useState(0);
   const [editReps, setEditReps] = useState(0);
 
@@ -114,6 +117,11 @@ export function DayRecordClient({ dateKey }: Props) {
   const workoutRow = useLiveQuery(
     () => (workoutId ? db.workouts.get(workoutId) : undefined),
     [workoutId],
+  );
+  const rawProfile = useLiveQuery(() => getSetting("userProfile"), []);
+  const bodyWeightKg = useMemo(
+    () => parseUserProfileJson(rawProfile).bodyWeightKg,
+    [rawProfile],
   );
 
   const sets = useLiveQuery(
@@ -155,7 +163,7 @@ export function DayRecordClient({ dateKey }: Props) {
   const sessionHighlights = useMemo(() => {
     const list = sets ?? [];
     if (list.length === 0 || !workoutId) return null;
-    const vol = totalVolumeKg(list);
+    const vol = totalVolumeKg(list, bodyWeightKg);
     const setCount = list.length;
     const exCount = countDistinctExercises(list);
     const statsReady = Array.isArray(allSetsForStats);
@@ -179,9 +187,10 @@ export function DayRecordClient({ dateKey }: Props) {
     const maxHistoricSession = maxOtherWorkoutVolumeKg(
       allSetsForStats,
       workoutId,
+      bodyWeightKg,
     );
     const isSessionVolumePR = vol > maxHistoricSession;
-    const byEx = volumeByExerciseInSets(list);
+    const byEx = volumeByExerciseInSets(list, bodyWeightKg);
     const exercisePRs: {
       exerciseId: string;
       label: string;
@@ -193,6 +202,7 @@ export function DayRecordClient({ dateKey }: Props) {
         allSetsForStats,
         exerciseId,
         workoutId,
+        bodyWeightKg,
       );
       exercisePRs.push({
         exerciseId,
@@ -220,7 +230,7 @@ export function DayRecordClient({ dateKey }: Props) {
       encouragement,
       statsReady: true,
     };
-  }, [sets, workoutId, allSetsForStats]);
+  }, [sets, workoutId, allSetsForStats, bodyWeightKg]);
 
   const removePendingRow = useCallback(
     async (rowId: string) => {
@@ -246,7 +256,7 @@ export function DayRecordClient({ dateKey }: Props) {
           workoutId,
           exerciseId: row.exerciseId,
           order,
-          weightKg: snapWeightToStepKg(row.weightKg),
+          weightKg: snapWeightToStepKg(row.weightKg, row.exerciseId),
           reps: Math.min(50, Math.max(0, Math.floor(row.reps))),
         });
         await markPendingLlmRowApplied(workoutId, row.id);
@@ -319,7 +329,7 @@ export function DayRecordClient({ dateKey }: Props) {
           newDraftRow(
             last
               ? {
-                  weightKg: snapWeightToStepKg(last.weightKg),
+                  weightKg: snapWeightToStepKg(last.weightKg, exerciseId),
                   reps: Math.min(50, Math.max(0, Math.floor(last.reps))),
                   defaultExerciseId: exerciseId,
                 }
@@ -392,7 +402,7 @@ export function DayRecordClient({ dateKey }: Props) {
             workoutId,
             exerciseId: snap.exerciseId,
             order: order++,
-            weightKg: snapWeightToStepKg(row.weightKg),
+            weightKg: snapWeightToStepKg(row.weightKg, snap.exerciseId),
             reps: Math.min(50, Math.max(0, Math.floor(row.reps))),
           });
         }
@@ -430,7 +440,7 @@ export function DayRecordClient({ dateKey }: Props) {
             workoutId,
             exerciseId,
             order: order++,
-            weightKg: snapWeightToStepKg(row.weightKg),
+            weightKg: snapWeightToStepKg(row.weightKg, exerciseId),
             reps: Math.min(50, Math.max(0, Math.floor(row.reps))),
           });
         }
@@ -446,12 +456,14 @@ export function DayRecordClient({ dateKey }: Props) {
 
   const startEditSet = useCallback((row: WorkoutSetRow) => {
     setEditingSetId(row.id);
-    setEditWeightKg(snapWeightToStepKg(row.weightKg));
+    setEditingExerciseId(row.exerciseId);
+    setEditWeightKg(snapWeightToStepKg(row.weightKg, row.exerciseId));
     setEditReps(Math.min(50, Math.max(0, Math.floor(row.reps))));
   }, []);
 
   const cancelEditSet = useCallback(() => {
     setEditingSetId(null);
+    setEditingExerciseId(null);
   }, []);
 
   const saveEditSet = useCallback(async () => {
@@ -460,16 +472,17 @@ export function DayRecordClient({ dateKey }: Props) {
     setErr(null);
     try {
       await updateSet(editingSetId, {
-        weightKg: snapWeightToStepKg(editWeightKg),
+        weightKg: snapWeightToStepKg(editWeightKg, editingExerciseId ?? undefined),
         reps: Math.min(50, Math.max(0, Math.floor(editReps))),
       });
       setEditingSetId(null);
+      setEditingExerciseId(null);
     } catch {
       setErr("更新に失敗しました。");
     } finally {
       setBusy(false);
     }
-  }, [editingSetId, editWeightKg, editReps]);
+  }, [editingSetId, editingExerciseId, editWeightKg, editReps]);
 
   const selectWheelClass =
     "h-14 w-full appearance-none rounded-xl border border-zinc-200 bg-white px-3 text-center text-base font-semibold tabular-nums shadow-sm dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-50";
@@ -565,7 +578,8 @@ export function DayRecordClient({ dateKey }: Props) {
                                       row.applied && "text-emerald-800 dark:text-emerald-200/90",
                                     )}
                                   >
-                                    {snapWeightToStepKg(row.weightKg)} kg ×{" "}
+                                    {snapWeightToStepKg(row.weightKg, row.exerciseId)}{" "}
+                                    kg ×{" "}
                                     {row.reps} 回
                                   </span>
                                   {row.applied && (
@@ -687,7 +701,8 @@ export function DayRecordClient({ dateKey }: Props) {
 
                   <div className="flex flex-col gap-5">
                     {draftSets.map((row, index) => {
-                      const wVal = snapWeightToStepKg(row.weightKg);
+                      const wVal = snapWeightToStepKg(row.weightKg, exId);
+                      const weightOptions = getWeightSelectOptionsForExercise(exId);
                       const rVal = Math.min(
                         50,
                         Math.max(0, Math.floor(row.reps)),
@@ -730,7 +745,7 @@ export function DayRecordClient({ dateKey }: Props) {
                                   })
                                 }
                               >
-                                {WEIGHT_SELECT_OPTIONS.map((w) => (
+                                {weightOptions.map((w) => (
                                   <option key={w} value={w}>
                                     {w % 1 === 0 ? w : w.toFixed(1)} kg
                                   </option>
@@ -934,12 +949,12 @@ export function DayRecordClient({ dateKey }: Props) {
                                   <div className="grid w-full max-w-sm grid-cols-2 gap-2">
                                     <select
                                       className={selectWheelClass}
-                                      value={snapWeightToStepKg(editWeightKg)}
+                                      value={snapWeightToStepKg(editWeightKg, exId)}
                                       onChange={(e) =>
                                         setEditWeightKg(Number(e.target.value))
                                       }
                                     >
-                                      {WEIGHT_SELECT_OPTIONS.map((w) => (
+                                      {getWeightSelectOptionsForExercise(exId).map((w) => (
                                         <option key={w} value={w}>
                                           {w % 1 === 0 ? w : w.toFixed(1)} kg
                                         </option>

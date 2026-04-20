@@ -8,11 +8,16 @@ import {
   saveExerciseCatalog,
   type ExerciseCatalogState,
 } from "@/lib/exerciseCatalog";
+import { getBaseDefaultWeightKgForExercise } from "@/lib/defaultWeightKg";
 import {
   getAllExercises,
   getCategoryLabel,
   listCategories,
 } from "@/lib/exercises";
+import {
+  getWeightSelectOptionsForExercise,
+  snapWeightToStepKg,
+} from "@/lib/recordBodyTabs";
 import type { ExerciseCategory, ExerciseMaster } from "@/lib/types";
 
 function groupByCategory(list: ExerciseMaster[]): Map<ExerciseCategory, ExerciseMaster[]> {
@@ -69,12 +74,42 @@ export function ExerciseCatalogSection() {
 
   const removeCustom = (id: string) => {
     if (!state) return;
+    const restDefaultWeightKgById = { ...state.defaultWeightKgById };
+    delete restDefaultWeightKgById[id];
     persist({
       ...state,
       custom: state.custom.filter((c) => c.id !== id),
       disabledIds: state.disabledIds.filter((x) => x !== id),
+      defaultWeightKgById: restDefaultWeightKgById,
     });
   };
+
+  const defaultWeightForExercise = useCallback(
+    (exerciseId: string): number => {
+      if (!state) return getBaseDefaultWeightKgForExercise(exerciseId);
+      const overridden = state.defaultWeightKgById[exerciseId];
+      if (typeof overridden === "number" && Number.isFinite(overridden)) {
+        return snapWeightToStepKg(overridden, exerciseId);
+      }
+      return getBaseDefaultWeightKgForExercise(exerciseId);
+    },
+    [state],
+  );
+
+  const updateDefaultWeight = useCallback(
+    (exerciseId: string, weightKg: number) => {
+      if (!state) return;
+      const snapped = snapWeightToStepKg(weightKg, exerciseId);
+      persist({
+        ...state,
+        defaultWeightKgById: {
+          ...state.defaultWeightKgById,
+          [exerciseId]: snapped,
+        },
+      });
+    },
+    [persist, state],
+  );
 
   const clearAllHidden = () => {
     if (!state) return;
@@ -96,6 +131,9 @@ export function ExerciseCatalogSection() {
       </h2>
       <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
         表示する種目を減らしたり、オリジナル種目を追加できます。非表示にしても、過去の記録の名前はそのまま表示されます。
+      </p>
+      <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+        ここで各種目のデフォルト重量も変更できます。
       </p>
 
       <div className="mt-4 flex flex-wrap gap-2">
@@ -130,14 +168,34 @@ export function ExerciseCatalogSection() {
                 <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
                   {items.map((ex) => {
                     const hidden = state.disabledIds.includes(ex.id);
+                    const defaultWeight = defaultWeightForExercise(ex.id);
+                    const weightOptions = getWeightSelectOptionsForExercise(ex.id);
                     return (
                       <li
                         key={ex.id}
-                        className="flex min-w-0 items-center justify-between gap-3 px-4 py-2.5"
+                        className="flex min-w-0 flex-wrap items-center justify-between gap-3 px-4 py-2.5"
                       >
-                        <span className="min-w-0 truncate text-sm text-zinc-800 dark:text-zinc-200">
-                          {ex.name}
-                        </span>
+                        <div className="min-w-0 flex-1">
+                          <span className="block min-w-0 truncate text-sm text-zinc-800 dark:text-zinc-200">
+                            {ex.name}
+                          </span>
+                          <label className="mt-2 flex max-w-[220px] items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400">
+                            <span className="shrink-0">初期重量</span>
+                            <select
+                              value={defaultWeight}
+                              onChange={(e) =>
+                                updateDefaultWeight(ex.id, Number(e.target.value))
+                              }
+                              className="w-full rounded-lg border border-zinc-200 bg-white px-2 py-1.5 text-xs text-zinc-900 dark:border-zinc-600 dark:bg-zinc-950 dark:text-zinc-50"
+                            >
+                              {weightOptions.map((w) => (
+                                <option key={w} value={w}>
+                                  {w % 1 === 0 ? w : w.toFixed(1)} kg
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                        </div>
                         <label className="flex shrink-0 items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400">
                           <span>{hidden ? "非表示" : "表示"}</span>
                           <input
@@ -166,16 +224,34 @@ export function ExerciseCatalogSection() {
             {state.custom.map((ex) => (
               <li
                 key={ex.id}
-                className="flex min-w-0 items-center justify-between gap-2 rounded-lg bg-white/80 px-3 py-2 dark:bg-zinc-900/60"
+                className="flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-lg bg-white/80 px-3 py-2 dark:bg-zinc-900/60"
               >
-                <span className="min-w-0 truncate text-sm">
-                  <span className="font-medium text-zinc-900 dark:text-zinc-50">
-                    {ex.name}
+                <div className="min-w-0 flex-1">
+                  <span className="min-w-0 truncate text-sm">
+                    <span className="font-medium text-zinc-900 dark:text-zinc-50">
+                      {ex.name}
+                    </span>
+                    <span className="ml-2 text-xs text-zinc-500">
+                      {getCategoryLabel(ex.category)}
+                    </span>
                   </span>
-                  <span className="ml-2 text-xs text-zinc-500">
-                    {getCategoryLabel(ex.category)}
-                  </span>
-                </span>
+                  <label className="mt-2 flex max-w-[220px] items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400">
+                    <span className="shrink-0">初期重量</span>
+                    <select
+                      value={defaultWeightForExercise(ex.id)}
+                      onChange={(e) =>
+                        updateDefaultWeight(ex.id, Number(e.target.value))
+                      }
+                      className="w-full rounded-lg border border-zinc-200 bg-white px-2 py-1.5 text-xs text-zinc-900 dark:border-zinc-600 dark:bg-zinc-950 dark:text-zinc-50"
+                    >
+                      {getWeightSelectOptionsForExercise(ex.id).map((w) => (
+                        <option key={w} value={w}>
+                          {w % 1 === 0 ? w : w.toFixed(1)} kg
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
                 <button
                   type="button"
                   onClick={() => removeCustom(ex.id)}

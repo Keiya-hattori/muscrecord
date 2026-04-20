@@ -8,11 +8,13 @@ const STORAGE_KEY = "muscrecord:exerciseCatalog";
 export type ExerciseCatalogState = {
   disabledIds: string[];
   custom: ExerciseMaster[];
+  defaultWeightKgById: Record<string, number>;
 };
 
 const defaultState = (): ExerciseCatalogState => ({
   disabledIds: [],
   custom: [],
+  defaultWeightKgById: {},
 });
 
 const listeners = new Set<() => void>();
@@ -59,7 +61,19 @@ function parseState(raw: string | null): ExerciseCatalogState {
         }
       }
     }
-    return { disabledIds, custom };
+    const defaultWeightKgById: Record<string, number> = {};
+    if (
+      o.defaultWeightKgById &&
+      typeof o.defaultWeightKgById === "object" &&
+      !Array.isArray(o.defaultWeightKgById)
+    ) {
+      for (const [id, value] of Object.entries(o.defaultWeightKgById)) {
+        if (typeof id !== "string") continue;
+        if (typeof value !== "number" || !Number.isFinite(value)) continue;
+        defaultWeightKgById[id] = value;
+      }
+    }
+    return { disabledIds, custom, defaultWeightKgById };
   } catch {
     return defaultState();
   }
