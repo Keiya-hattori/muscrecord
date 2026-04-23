@@ -13,7 +13,8 @@ import {
   DEFAULT_REPS_FOR_NEW_SET,
   getDefaultWeightKgForExercise,
 } from "@/lib/defaultWeightKg";
-import { snapWeightToStepKg } from "@/lib/recordBodyTabs";
+import { CableStackWeightSelects } from "@/components/CableStackWeightSelects";
+import { isCableStackExercise, snapWeightToStepKg } from "@/lib/recordBodyTabs";
 import type { SetKind } from "@/lib/types";
 import { ExerciseCover } from "@/components/ExerciseCover";
 import { SetRowKindRirHeader } from "@/components/SetRowKindRirHeader";
@@ -83,6 +84,9 @@ export function SessionExercisePanel({
 
   if (!exercise) return null;
 
+  const sessionWeightSelectClass =
+    "h-14 w-full appearance-none rounded-xl border border-zinc-200 bg-white px-3 text-center text-base font-semibold tabular-nums shadow-sm dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-50";
+
   return (
     <section className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
@@ -143,58 +147,90 @@ export function SessionExercisePanel({
                   重量 (kg)
                 </div>
                 <div className="mb-2 text-center font-mono text-3xl font-bold tabular-nums text-zinc-900 dark:text-white">
-                  {row.weightKg}
+                  {snapWeightToStepKg(row.weightKg, exerciseId)}
                 </div>
-                <div className="flex flex-wrap justify-center gap-2">
-                  <StepChip
-                    label="−10"
-                    onClick={() =>
-                      void updateSet(row.id, {
-                        weightKg: snapWeightToStepKg(row.weightKg - 10, exerciseId),
-                      })
-                    }
-                  />
-                  <StepChip
-                    label="−5"
-                    onClick={() =>
-                      void updateSet(row.id, {
-                        weightKg: snapWeightToStepKg(row.weightKg - 5, exerciseId),
-                      })
-                    }
-                  />
-                  <StepChip
-                    label="−2.5"
-                    onClick={() =>
-                      void updateSet(row.id, {
-                        weightKg: snapWeightToStepKg(row.weightKg - 2.5, exerciseId),
-                      })
-                    }
-                  />
-                  <StepChip
-                    label="+2.5"
-                    onClick={() =>
-                      void updateSet(row.id, {
-                        weightKg: snapWeightToStepKg(row.weightKg + 2.5, exerciseId),
-                      })
-                    }
-                  />
-                  <StepChip
-                    label="+5"
-                    onClick={() =>
-                      void updateSet(row.id, {
-                        weightKg: snapWeightToStepKg(row.weightKg + 5, exerciseId),
-                      })
-                    }
-                  />
-                  <StepChip
-                    label="+10"
-                    onClick={() =>
-                      void updateSet(row.id, {
-                        weightKg: snapWeightToStepKg(row.weightKg + 10, exerciseId),
-                      })
-                    }
-                  />
-                </div>
+                {isCableStackExercise(exerciseId) ? (
+                  <div className="mt-1">
+                    <CableStackWeightSelects
+                      exerciseId={exerciseId}
+                      weightKg={row.weightKg}
+                      onWeightChange={(w) =>
+                        void updateSet(row.id, { weightKg: w })
+                      }
+                      idPrefix={`sess-${exerciseId}-${row.id}`}
+                      selectClassName={sessionWeightSelectClass}
+                    />
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap justify-center gap-2">
+                    <StepChip
+                      label="−10"
+                      onClick={() =>
+                        void updateSet(row.id, {
+                          weightKg: snapWeightToStepKg(
+                            row.weightKg - 10,
+                            exerciseId,
+                          ),
+                        })
+                      }
+                    />
+                    <StepChip
+                      label="−5"
+                      onClick={() =>
+                        void updateSet(row.id, {
+                          weightKg: snapWeightToStepKg(
+                            row.weightKg - 5,
+                            exerciseId,
+                          ),
+                        })
+                      }
+                    />
+                    <StepChip
+                      label="−2.5"
+                      onClick={() =>
+                        void updateSet(row.id, {
+                          weightKg: snapWeightToStepKg(
+                            row.weightKg - 2.5,
+                            exerciseId,
+                          ),
+                        })
+                      }
+                    />
+                    <StepChip
+                      label="+2.5"
+                      onClick={() =>
+                        void updateSet(row.id, {
+                          weightKg: snapWeightToStepKg(
+                            row.weightKg + 2.5,
+                            exerciseId,
+                          ),
+                        })
+                      }
+                    />
+                    <StepChip
+                      label="+5"
+                      onClick={() =>
+                        void updateSet(row.id, {
+                          weightKg: snapWeightToStepKg(
+                            row.weightKg + 5,
+                            exerciseId,
+                          ),
+                        })
+                      }
+                    />
+                    <StepChip
+                      label="+10"
+                      onClick={() =>
+                        void updateSet(row.id, {
+                          weightKg: snapWeightToStepKg(
+                            row.weightKg + 10,
+                            exerciseId,
+                          ),
+                        })
+                      }
+                    />
+                  </div>
+                )}
               </div>
 
               <div>

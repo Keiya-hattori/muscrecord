@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import { AppNav } from "@/components/AppNav";
 import { Big3RecordsWidget } from "@/components/Big3RecordsWidget";
@@ -60,49 +59,6 @@ export function HomeClient() {
         </button>
 
         <Big3RecordsWidget />
-
-        <div className="rounded-2xl border border-zinc-200/80 bg-white/70 p-5 backdrop-blur-sm dark:border-white/10 dark:bg-white/[0.03]">
-          <p className="text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-            ほかの操作
-          </p>
-          <ul className="mt-3 space-y-3 text-sm">
-            <li>
-              <Link
-                href="/suggest"
-                className="font-medium text-violet-700 underline-offset-2 hover:underline dark:text-violet-300"
-              >
-                メニュー提案（LLM）
-              </Link>
-              <span className="ml-2 text-zinc-500 dark:text-zinc-400">
-                — 記録をもとにメニュー生成
-              </span>
-            </li>
-            <li>
-              <Link
-                href="/history"
-                className="font-medium text-violet-700 underline-offset-2 hover:underline dark:text-violet-300"
-              >
-                種目別の記録
-              </Link>
-            </li>
-            <li>
-              <Link
-                href="/progress"
-                className="font-medium text-violet-700 underline-offset-2 hover:underline dark:text-violet-300"
-              >
-                グラフ・称号
-              </Link>
-            </li>
-            <li>
-              <Link
-                href="/settings"
-                className="font-medium text-zinc-700 underline-offset-2 hover:underline dark:text-zinc-300"
-              >
-                からだの情報（設定）
-              </Link>
-            </li>
-          </ul>
-        </div>
       </div>
     </>
   );

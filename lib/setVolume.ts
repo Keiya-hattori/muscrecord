@@ -10,7 +10,6 @@ export const INCLINE_DUMBBELL_PRESS_ID = "incline_dumbbell_press";
 
 /** 左右別回数/重量（片手ずつ） */
 export const UNILATERAL_DUMBBELL_IDS = new Set<string>([
-  "lateral_raise",
   "front_raise",
   "rear_delt_fly",
   "bicep_curl",
@@ -26,8 +25,10 @@ const BARBELL_PER_SIDE_VOLUME_2X_IDS = new Set<string>([
   INCLINE_BENCH_PRESS_ID,
 ]);
 
-const BILATERAL_DUMBBELL_SAME_REPS_2X_IDS = new Set<string>([
+/** 片手(または片側)負荷×回のログで、合計負荷は左右分（×2） */
+const BILATERAL_SAME_MOTION_2X_VOLUME_IDS = new Set<string>([
   INCLINE_DUMBBELL_PRESS_ID,
+  "lateral_raise",
 ]);
 
 export function normalizeSetKind(k: WorkoutSetRow["setKind"]): SetKind {
@@ -60,7 +61,7 @@ export function effectiveSetVolumeFromRow(
     return 2 * Math.max(0, weightKg) * reps;
   }
 
-  if (BILATERAL_DUMBBELL_SAME_REPS_2X_IDS.has(exerciseId)) {
+  if (BILATERAL_SAME_MOTION_2X_VOLUME_IDS.has(exerciseId)) {
     return 2 * Math.max(0, weightKg) * reps;
   }
 

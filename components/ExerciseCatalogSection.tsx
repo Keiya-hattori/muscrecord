@@ -8,6 +8,7 @@ import {
   saveExerciseCatalog,
   type ExerciseCatalogState,
 } from "@/lib/exerciseCatalog";
+import { CableStackWeightSelects } from "@/components/CableStackWeightSelects";
 import { getBaseDefaultWeightKgForExercise } from "@/lib/defaultWeightKg";
 import {
   getAllExercises,
@@ -16,6 +17,7 @@ import {
 } from "@/lib/exercises";
 import {
   getWeightSelectOptionsForExercise,
+  isCableStackExercise,
   snapWeightToStepKg,
 } from "@/lib/recordBodyTabs";
 import type { ExerciseCategory, ExerciseMaster } from "@/lib/types";
@@ -169,7 +171,11 @@ export function ExerciseCatalogSection() {
                   {items.map((ex) => {
                     const hidden = state.disabledIds.includes(ex.id);
                     const defaultWeight = defaultWeightForExercise(ex.id);
-                    const weightOptions = getWeightSelectOptionsForExercise(ex.id);
+                    const weightOptions = getWeightSelectOptionsForExercise(
+                      ex.id,
+                    );
+                    const catalogSelectClass =
+                      "h-12 w-full max-w-[280px] appearance-none rounded-lg border border-zinc-200 bg-white px-2 py-1.5 text-center text-xs font-semibold tabular-nums text-zinc-900 dark:border-zinc-600 dark:bg-zinc-950 dark:text-zinc-50";
                     return (
                       <li
                         key={ex.id}
@@ -179,22 +185,42 @@ export function ExerciseCatalogSection() {
                           <span className="block min-w-0 truncate text-sm text-zinc-800 dark:text-zinc-200">
                             {ex.name}
                           </span>
-                          <label className="mt-2 flex max-w-[220px] items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400">
-                            <span className="shrink-0">初期重量</span>
-                            <select
-                              value={defaultWeight}
-                              onChange={(e) =>
-                                updateDefaultWeight(ex.id, Number(e.target.value))
-                              }
-                              className="w-full rounded-lg border border-zinc-200 bg-white px-2 py-1.5 text-xs text-zinc-900 dark:border-zinc-600 dark:bg-zinc-950 dark:text-zinc-50"
-                            >
-                              {weightOptions.map((w) => (
-                                <option key={w} value={w}>
-                                  {w % 1 === 0 ? w : w.toFixed(1)} kg
-                                </option>
-                              ))}
-                            </select>
-                          </label>
+                          {isCableStackExercise(ex.id) ? (
+                            <div className="mt-2 max-w-md">
+                              <p className="mb-1 text-xs text-zinc-600 dark:text-zinc-400">
+                                初期重量
+                              </p>
+                              <CableStackWeightSelects
+                                exerciseId={ex.id}
+                                weightKg={defaultWeight}
+                                onWeightChange={(w) =>
+                                  updateDefaultWeight(ex.id, w)
+                                }
+                                idPrefix={`ec-b-${ex.id}`}
+                                selectClassName={catalogSelectClass}
+                              />
+                            </div>
+                          ) : (
+                            <label className="mt-2 flex max-w-[220px] items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400">
+                              <span className="shrink-0">初期重量</span>
+                              <select
+                                value={defaultWeight}
+                                onChange={(e) =>
+                                  updateDefaultWeight(
+                                    ex.id,
+                                    Number(e.target.value),
+                                  )
+                                }
+                                className="w-full rounded-lg border border-zinc-200 bg-white px-2 py-1.5 text-xs text-zinc-900 dark:border-zinc-600 dark:bg-zinc-950 dark:text-zinc-50"
+                              >
+                                {weightOptions.map((w) => (
+                                  <option key={w} value={w}>
+                                    {w % 1 === 0 ? w : w.toFixed(1)} kg
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+                          )}
                         </div>
                         <label className="flex shrink-0 items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400">
                           <span>{hidden ? "非表示" : "表示"}</span>
@@ -235,22 +261,37 @@ export function ExerciseCatalogSection() {
                       {getCategoryLabel(ex.category)}
                     </span>
                   </span>
-                  <label className="mt-2 flex max-w-[220px] items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400">
-                    <span className="shrink-0">初期重量</span>
-                    <select
-                      value={defaultWeightForExercise(ex.id)}
-                      onChange={(e) =>
-                        updateDefaultWeight(ex.id, Number(e.target.value))
-                      }
-                      className="w-full rounded-lg border border-zinc-200 bg-white px-2 py-1.5 text-xs text-zinc-900 dark:border-zinc-600 dark:bg-zinc-950 dark:text-zinc-50"
-                    >
-                      {getWeightSelectOptionsForExercise(ex.id).map((w) => (
-                        <option key={w} value={w}>
-                          {w % 1 === 0 ? w : w.toFixed(1)} kg
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                  {isCableStackExercise(ex.id) ? (
+                    <div className="mt-2 max-w-md">
+                      <p className="mb-1 text-xs text-zinc-600 dark:text-zinc-400">
+                        初期重量
+                      </p>
+                      <CableStackWeightSelects
+                        exerciseId={ex.id}
+                        weightKg={defaultWeightForExercise(ex.id)}
+                        onWeightChange={(w) => updateDefaultWeight(ex.id, w)}
+                        idPrefix={`ec-c-${ex.id}`}
+                        selectClassName="h-12 w-full max-w-[280px] appearance-none rounded-lg border border-zinc-200 bg-white px-2 py-1.5 text-center text-xs font-semibold tabular-nums text-zinc-900 dark:border-zinc-600 dark:bg-zinc-950 dark:text-zinc-50"
+                      />
+                    </div>
+                  ) : (
+                    <label className="mt-2 flex max-w-[220px] items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400">
+                      <span className="shrink-0">初期重量</span>
+                      <select
+                        value={defaultWeightForExercise(ex.id)}
+                        onChange={(e) =>
+                          updateDefaultWeight(ex.id, Number(e.target.value))
+                        }
+                        className="w-full rounded-lg border border-zinc-200 bg-white px-2 py-1.5 text-xs text-zinc-900 dark:border-zinc-600 dark:bg-zinc-950 dark:text-zinc-50"
+                      >
+                        {getWeightSelectOptionsForExercise(ex.id).map((w) => (
+                          <option key={w} value={w}>
+                            {w % 1 === 0 ? w : w.toFixed(1)} kg
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  )}
                 </div>
                 <button
                   type="button"

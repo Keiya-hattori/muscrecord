@@ -168,7 +168,7 @@
   },
   {
     "id": "tricep_pushdown",
-    "name": "プレスダウン",
+    "name": "ケーブルプレスダウン",
     "category": "arms",
     "armFocus": "tricep",
     "imagePath": "/exercises/tricep_pushdown.svg"

@@ -23,6 +23,7 @@ import {
   updateSet,
   updateWorkoutTrainingContext,
 } from "@/lib/db";
+import { CableStackWeightSelects } from "@/components/CableStackWeightSelects";
 import { AppNav } from "@/components/AppNav";
 import { ExerciseCover } from "@/components/ExerciseCover";
 import { SetRowKindRirHeader } from "@/components/SetRowKindRirHeader";
@@ -42,6 +43,7 @@ import {
   REP_SELECT_OPTIONS,
   exercisesForRecordTab,
   getWeightSelectOptionsForExercise,
+  isCableStackExercise,
   recordTabForExercise,
   snapWeightToStepKg,
   type RecordBodyTabId,
@@ -984,7 +986,48 @@ export function DayRecordClient({ dateKey }: Props) {
                             onDelete={() => removeDraftRow(exId, row.id)}
                           />
 
-                          {!uni && (
+                          {!uni && isCableStackExercise(exId) && (
+                            <div className="grid grid-cols-1 gap-4 md:grid-cols-3 md:items-end">
+                              <div className="md:col-span-2">
+                                <CableStackWeightSelects
+                                  exerciseId={exId}
+                                  weightKg={row.weightKg}
+                                  onWeightChange={(w) =>
+                                    updateDraft(exId, row.id, { weightKg: w })
+                                  }
+                                  idPrefix={`w-${exId}-${row.id}`}
+                                  selectClassName={selectWheelClass}
+                                />
+                              </div>
+                              <div>
+                                <label
+                                  className="mb-1 block text-center text-xs font-medium text-zinc-500"
+                                  htmlFor={`r-${exId}-${row.id}`}
+                                >
+                                  回数
+                                </label>
+                                <select
+                                  id={`r-${exId}-${row.id}`}
+                                  className={selectWheelClass}
+                                  value={rVal}
+                                  onChange={(e) => {
+                                    const n = Number(e.target.value);
+                                    updateDraft(exId, row.id, { reps: n });
+                                  }}
+                                >
+                                  {REP_SELECT_OPTIONS.map((r) => (
+                                    <option key={r} value={r}>
+                                      {r} 回
+                                    </option>
+                                  ))}
+                                </select>
+                                <p className="mt-1 text-center text-[10px] text-zinc-400">
+                                  タップしてスクロール選択
+                                </p>
+                              </div>
+                            </div>
+                          )}
+                          {!uni && !isCableStackExercise(exId) && (
                             <div className="grid grid-cols-2 gap-3">
                               <div>
                                 <label
@@ -1382,6 +1425,34 @@ export function DayRecordClient({ dateKey }: Props) {
                                         </select>
                                       </div>
                                     </>
+                                  ) : isCableStackExercise(exId) ? (
+                                    <div className="grid grid-cols-1 gap-3 md:grid-cols-3 md:items-end">
+                                      <div className="md:col-span-2">
+                                        <CableStackWeightSelects
+                                          exerciseId={exId}
+                                          weightKg={editWeightKg}
+                                          onWeightChange={setEditWeightKg}
+                                          idPrefix={`ed-${exId}-${rrow.id}`}
+                                          selectClassName={selectWheelClass}
+                                        />
+                                      </div>
+                                      <select
+                                        className={selectWheelClass}
+                                        value={Math.min(
+                                          50,
+                                          Math.max(0, Math.floor(editReps)),
+                                        )}
+                                        onChange={(e) =>
+                                          setEditReps(Number(e.target.value))
+                                        }
+                                      >
+                                        {REP_SELECT_OPTIONS.map((r) => (
+                                          <option key={r} value={r}>
+                                            {r} 回
+                                          </option>
+                                        ))}
+                                      </select>
+                                    </div>
                                   ) : (
                                     <div className="grid grid-cols-2 gap-2">
                                       <select
