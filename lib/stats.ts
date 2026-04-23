@@ -137,6 +137,61 @@ export async function groupHistoryByExercise(): Promise<ExerciseHistoryGroup[]> 
   return result;
 }
 
+/** BIG3: 1回以上挙げた記録のうち、ログ上の最大重量（kg） */
+export const BIG3_BENCH_ID = "bench_press";
+export const BIG3_SQUAT_ID = "squat";
+export const BIG3_DEADLIFT_ID = "deadlift";
+
+function maxSetWeightForExercise(
+  workouts: WorkoutWithVolume[],
+  exerciseId: string,
+): number {
+  let m = 0;
+  for (const w of workouts) {
+    for (const s of w.sets) {
+      if (s.exerciseId !== exerciseId) continue;
+      if (s.reps < 1) continue;
+      const kg = s.weightKg;
+      if (Number.isFinite(kg) && kg > m) m = kg;
+    }
+  }
+  return m;
+}
+
+/**
+ * 日付境界より前 / 以降の種目別「セット最大重量（1回以上）」を集計し、
+ * いずれかの種目で (以降 max) / (以前 max) >= minRatio なら true
+ */
+function anyExerciseMaxWeightGainAcrossCutoff(
+  workouts: WorkoutWithVolume[],
+  cutoffKey: string,
+  minRatio: number,
+): boolean {
+  const before = new Map<string, number>();
+  const after = new Map<string, number>();
+
+  for (const w of workouts) {
+    const dk = w.sessionDate;
+    for (const s of w.sets) {
+      if (s.reps < 1) continue;
+      const kg = s.weightKg;
+      if (!Number.isFinite(kg) || kg <= 0) continue;
+      const ex = s.exerciseId;
+      if (dk < cutoffKey) {
+        before.set(ex, Math.max(before.get(ex) ?? 0, kg));
+      } else {
+        after.set(ex, Math.max(after.get(ex) ?? 0, kg));
+      }
+    }
+  }
+
+  for (const [ex, afterMax] of after) {
+    const beforeMax = before.get(ex) ?? 0;
+    if (beforeMax > 0 && afterMax >= beforeMax * minRatio) return true;
+  }
+  return false;
+}
+
 export type GlobalAggregates = {
   totalWorkouts: number;
   totalSets: number;
@@ -156,6 +211,15 @@ export type GlobalAggregates = {
    * 直近30日 vs 前30日のボリューム増減率（%）。前30日が0なら null
    */
   volumeGrowth30dPct: number | null;
+  maxWeightBenchPressKg: number;
+  maxWeightSquatKg: number;
+  maxWeightDeadliftKg: number;
+  /**
+   * 直近90日の種目別最大重量が、それより前の同種目の最大より
+   * 20% or 50% 以上上がった種目が1つでもある
+   */
+  anyExerciseMaxWeightUp20Since90d: boolean;
+  anyExerciseMaxWeightUp50Since90d: boolean;
 };
 
 function volumeAndSessionsInRange(
@@ -202,6 +266,26 @@ export async function computeGlobalAggregates(): Promise<GlobalAggregates> {
   const avgVolumePerSession =
     totalWorkouts > 0 ? totalVolume / totalWorkouts : 0;
 
+  const maxWeightBenchPressKg = maxSetWeightForExercise(
+    workouts,
+    BIG3_BENCH_ID,
+  );
+  const maxWeightSquatKg = maxSetWeightForExercise(
+    workouts,
+    BIG3_SQUAT_ID,
+  );
+  const maxWeightDeadliftKg = maxSetWeightForExercise(
+    workouts,
+    BIG3_DEADLIFT_ID,
+  );
+
+  const cut90 = addDaysToDateKey(today, -90);
+  const anyExerciseMaxWeightUp50Since90d =
+    anyExerciseMaxWeightGainAcrossCutoff(workouts, cut90, 1.5);
+  const anyExerciseMaxWeightUp20Since90d =
+    anyExerciseMaxWeightUp50Since90d ||
+    anyExerciseMaxWeightGainAcrossCutoff(workouts, cut90, 1.2);
+
   return {
     totalWorkouts,
     totalSets,
@@ -213,6 +297,25 @@ export async function computeGlobalAggregates(): Promise<GlobalAggregates> {
     sessionsLast30Days: last30.sessions,
     sessionsPrev30Days: prev30.sessions,
     volumeGrowth30dPct,
+    maxWeightBenchPressKg,
+    maxWeightSquatKg,
+    maxWeightDeadliftKg,
+    anyExerciseMaxWeightUp20Since90d,
+    anyExerciseMaxWeightUp50Since90d,
+  };
+}
+
+/** ホーム用: BIG3 最大（記録ゼロなら 0） */
+export async function getBig3MaxKg(): Promise<{
+  bench: number;
+  squat: number;
+  dead: number;
+}> {
+  const workouts = await loadAllWorkoutsWithVolume();
+  return {
+    bench: maxSetWeightForExercise(workouts, BIG3_BENCH_ID),
+    squat: maxSetWeightForExercise(workouts, BIG3_SQUAT_ID),
+    dead: maxSetWeightForExercise(workouts, BIG3_DEADLIFT_ID),
   };
 }
 

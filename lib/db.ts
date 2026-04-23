@@ -193,6 +193,8 @@ export async function updateSet(
       | "rir"
       | "weightLeftKg"
       | "weightRightKg"
+      | "repsLeft"
+      | "repsRight"
     >
   >,
 ): Promise<void> {

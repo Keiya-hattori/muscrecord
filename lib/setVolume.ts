@@ -5,9 +5,11 @@ export const PULL_UP_EXERCISE_ID = "pull_up";
 /** インクラインベンチ: 片側（片腕）の負荷を入力 → ボリュームは両側分（×2） */
 export const INCLINE_BENCH_PRESS_ID = "incline_bench_press";
 
-/** 左右別入力（片手ずつ合算するダンベル系） */
+/** インクラインダンベルプレス: 片手(1個)のkg×回。左右同数のため重複入力なし。ボリュームは両手分 */
+export const INCLINE_DUMBBELL_PRESS_ID = "incline_dumbbell_press";
+
+/** 左右別回数/重量（片手ずつ） */
 export const UNILATERAL_DUMBBELL_IDS = new Set<string>([
-  "incline_dumbbell_press",
   "lateral_raise",
   "front_raise",
   "rear_delt_fly",
@@ -22,6 +24,10 @@ export const UNILATERAL_DUMBBELL_IDS = new Set<string>([
 
 const BARBELL_PER_SIDE_VOLUME_2X_IDS = new Set<string>([
   INCLINE_BENCH_PRESS_ID,
+]);
+
+const BILATERAL_DUMBBELL_SAME_REPS_2X_IDS = new Set<string>([
+  INCLINE_DUMBBELL_PRESS_ID,
 ]);
 
 export function normalizeSetKind(k: WorkoutSetRow["setKind"]): SetKind {
@@ -54,7 +60,24 @@ export function effectiveSetVolumeFromRow(
     return 2 * Math.max(0, weightKg) * reps;
   }
 
+  if (BILATERAL_DUMBBELL_SAME_REPS_2X_IDS.has(exerciseId)) {
+    return 2 * Math.max(0, weightKg) * reps;
+  }
+
   if (UNILATERAL_DUMBBELL_IDS.has(exerciseId)) {
+    const rL = s.repsLeft;
+    const rR = s.repsRight;
+    const lReps = rL != null && Number.isFinite(rL) ? Math.max(0, Math.floor(rL)) : null;
+    const rReps = rR != null && Number.isFinite(rR) ? Math.max(0, Math.floor(rR)) : null;
+    if (lReps != null && rReps != null) {
+      const wL = weightLeftKg != null && Number.isFinite(weightLeftKg) ? weightLeftKg : null;
+      const wR = weightRightKg != null && Number.isFinite(weightRightKg) ? weightRightKg : null;
+      if (wL != null && wR != null) {
+        return wL * lReps + wR * rReps;
+      }
+      const w = Math.max(0, weightKg);
+      return w * lReps + w * rReps;
+    }
     const L =
       weightLeftKg != null && Number.isFinite(weightLeftKg) ? weightLeftKg : null;
     const R =

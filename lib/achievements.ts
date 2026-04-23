@@ -45,52 +45,10 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     icon: "💯",
   },
   {
-    id: "sessions_200",
-    title: "レジェンド入り",
-    description: "累計200セッション達成",
-    icon: "👑",
-  },
-  {
-    id: "sessions_300",
-    title: "三百の刻",
-    description: "累計300セッション達成",
-    icon: "🔱",
-  },
-  {
-    id: "sessions_500",
-    title: "ハーフ・サウザンド",
-    description: "累計500セッション達成",
-    icon: "🎖️",
-  },
-  {
     id: "sets_50",
     title: "セット職人",
     description: "累計メインセット数 50 回（ウォームアップ等を除く）",
     icon: "🔢",
-  },
-  {
-    id: "sets_200",
-    title: "ボリューム蓄積",
-    description: "累計メインセット数 200 回（ウォームアップ等を除く）",
-    icon: "📊",
-  },
-  {
-    id: "sets_500",
-    title: "セットマシン",
-    description: "累計メインセット数 500 回（ウォームアップ等を除く）",
-    icon: "🤖",
-  },
-  {
-    id: "sets_1000",
-    title: "千回の反復",
-    description: "累計メインセット数 1,000 回（ウォームアップ等を除く）",
-    icon: "🔥",
-  },
-  {
-    id: "sets_2000",
-    title: "反復の化身",
-    description: "累計メインセット数 2,000 回（ウォームアップ等を除く）",
-    icon: "💪",
   },
   {
     id: "volume_10k",
@@ -147,22 +105,16 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     icon: "🃏",
   },
   {
-    id: "variety_15",
-    title: "部位の探索者",
-    description: "15種目以上を記録した",
-    icon: "🧭",
+    id: "weight_milestone_20",
+    title: "重量ブレイク +20%",
+    description: "いずれかの種目で、直近90日の最大重量が以前の同種目最大から20%以上アップ",
+    icon: "📶",
   },
   {
-    id: "variety_20",
-    title: "マスター・オブ・バリエーション",
-    description: "20種目以上を記録した",
-    icon: "🌈",
-  },
-  {
-    id: "variety_25",
-    title: "フルライブラリ",
-    description: "25種目以上を記録した",
-    icon: "📚",
+    id: "weight_milestone_50",
+    title: "重量ブレイク +50%",
+    description: "いずれかの種目で、直近90日の最大重量が以前の同種目最大から50%以上アップ",
+    icon: "🎯",
   },
   {
     id: "growth_30d_10",
@@ -218,12 +170,75 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     description: "累計10セッション以上かつ 8 種目以上を記録",
     icon: "🧩",
   },
+  {
+    id: "bench_60",
+    title: "ベンチ 60",
+    description: "ベンチプレスの記録で 60kg を1回以上扱った",
+    icon: "🔩",
+  },
+  {
+    id: "bench_80",
+    title: "ベンチ 80",
+    description: "ベンチプレスの記録で 80kg を1回以上扱った",
+    icon: "🔩",
+  },
+  {
+    id: "bench_100",
+    title: "ベンチ 100",
+    description: "ベンチプレスの記録で 100kg を1回以上扱った",
+    icon: "💎",
+  },
+  {
+    id: "squat_90",
+    title: "スクワット 90",
+    description: "スクワットの記録で 90kg を1回以上扱った",
+    icon: "🦵",
+  },
+  {
+    id: "squat_100",
+    title: "スクワット 100",
+    description: "スクワットの記録で 100kg を1回以上扱った",
+    icon: "🦵",
+  },
+  {
+    id: "squat_110",
+    title: "スクワット 110",
+    description: "スクワットの記録で 110kg を1回以上扱った",
+    icon: "🦵",
+  },
+  {
+    id: "squat_120",
+    title: "スクワット 120",
+    description: "スクワットの記録で 120kg を1回以上扱った",
+    icon: "🦵",
+  },
+  {
+    id: "dead_120",
+    title: "デッド 120",
+    description: "デッドリフトの記録で 120kg を1回以上扱った",
+    icon: "⛓️",
+  },
+  {
+    id: "dead_140",
+    title: "デッド 140",
+    description: "デッドリフトの記録で 140kg を1回以上扱った",
+    icon: "⛓️",
+  },
+  {
+    id: "dead_160",
+    title: "デッド 160",
+    description: "デッドリフトの記録で 160kg を1回以上扱った",
+    icon: "⛓️",
+  },
 ];
 
 export type AchievementStatus = AchievementDef & { unlocked: boolean };
 
 export function evaluateAchievements(a: GlobalAggregates): AchievementStatus[] {
   const g = a.volumeGrowth30dPct;
+  const b = a.maxWeightBenchPressKg;
+  const sq = a.maxWeightSquatKg;
+  const dl = a.maxWeightDeadliftKg;
   const checks: Record<string, boolean> = {
     first_log: a.totalWorkouts >= 1,
     sessions_5: a.totalWorkouts >= 5,
@@ -231,14 +246,7 @@ export function evaluateAchievements(a: GlobalAggregates): AchievementStatus[] {
     sessions_30: a.totalWorkouts >= 30,
     sessions_50: a.totalWorkouts >= 50,
     sessions_100: a.totalWorkouts >= 100,
-    sessions_200: a.totalWorkouts >= 200,
-    sessions_300: a.totalWorkouts >= 300,
-    sessions_500: a.totalWorkouts >= 500,
     sets_50: a.totalSets >= 50,
-    sets_200: a.totalSets >= 200,
-    sets_500: a.totalSets >= 500,
-    sets_1000: a.totalSets >= 1000,
-    sets_2000: a.totalSets >= 2000,
     volume_10k: a.totalVolume >= 10_000,
     volume_50k: a.totalVolume >= 50_000,
     volume_100k: a.totalVolume >= 100_000,
@@ -248,9 +256,8 @@ export function evaluateAchievements(a: GlobalAggregates): AchievementStatus[] {
     variety_5: a.uniqueExerciseCount >= 5,
     variety_10: a.uniqueExerciseCount >= 10,
     variety_12: a.uniqueExerciseCount >= 12,
-    variety_15: a.uniqueExerciseCount >= 15,
-    variety_20: a.uniqueExerciseCount >= 20,
-    variety_25: a.uniqueExerciseCount >= 25,
+    weight_milestone_20: a.anyExerciseMaxWeightUp20Since90d,
+    weight_milestone_50: a.anyExerciseMaxWeightUp50Since90d,
     growth_30d_10:
       g !== null && a.volumePrev30Days > 0 && g >= 10,
     growth_30d_25:
@@ -263,6 +270,16 @@ export function evaluateAchievements(a: GlobalAggregates): AchievementStatus[] {
     avg_vol_8k: a.avgVolumePerSession >= 8000,
     volume_density: a.totalSets >= 300 && a.totalWorkouts >= 10,
     balanced_lifter: a.totalWorkouts >= 10 && a.uniqueExerciseCount >= 8,
+    bench_60: b >= 60,
+    bench_80: b >= 80,
+    bench_100: b >= 100,
+    squat_90: sq >= 90,
+    squat_100: sq >= 100,
+    squat_110: sq >= 110,
+    squat_120: sq >= 120,
+    dead_120: dl >= 120,
+    dead_140: dl >= 140,
+    dead_160: dl >= 160,
   };
 
   return ACHIEVEMENTS.map((def) => ({

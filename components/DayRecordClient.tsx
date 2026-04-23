@@ -25,6 +25,7 @@ import {
 } from "@/lib/db";
 import { AppNav } from "@/components/AppNav";
 import { ExerciseCover } from "@/components/ExerciseCover";
+import { SetRowKindRirHeader } from "@/components/SetRowKindRirHeader";
 import { useRecordableExercises } from "@/hooks/useRecordableExercises";
 import { getExerciseById } from "@/lib/exercises";
 import {
@@ -55,6 +56,7 @@ import {
 } from "@/lib/dayRecordAchievements";
 import {
   INCLINE_BENCH_PRESS_ID,
+  INCLINE_DUMBBELL_PRESS_ID,
   isUnilateralDumbbellExercise,
   normalizeSetKind,
 } from "@/lib/setVolume";
@@ -68,11 +70,15 @@ type Props = {
 type DraftRow = {
   id: string;
   weightKg: number;
+  /** 非片手。片手種目は repsLeft+repsRight と同値 */
   reps: number;
   setKind: SetKind;
   rir: number | null;
   weightLeftKg: number | null;
   weightRightKg: number | null;
+  /** 片手種目: 左・右の回数 */
+  repsLeft: number;
+  repsRight: number;
 };
 
 type DraftPanel = {
@@ -90,6 +96,8 @@ function newDraftRow(
       | "rir"
       | "weightLeftKg"
       | "weightRightKg"
+      | "repsLeft"
+      | "repsRight"
     >
   > & {
     defaultExerciseId?: string;
@@ -99,14 +107,22 @@ function newDraftRow(
   const baseW = defaultExerciseId
     ? getDefaultWeightKgForExercise(defaultExerciseId)
     : snapWeightToStepKg(40);
+  const dRep = rest.reps ?? DEFAULT_REPS_FOR_NEW_SET;
+  const rL = rest.repsLeft ?? dRep;
+  const rR = rest.repsRight ?? dRep;
+  const unilateral = defaultExerciseId
+    ? isUnilateralDumbbellExercise(defaultExerciseId)
+    : false;
   return {
     id: crypto.randomUUID(),
     weightKg: rest.weightKg ?? baseW,
-    reps: rest.reps ?? DEFAULT_REPS_FOR_NEW_SET,
+    reps: unilateral ? rL + rR : dRep,
     setKind: rest.setKind ?? "main",
     rir: rest.rir ?? null,
     weightLeftKg: rest.weightLeftKg ?? null,
     weightRightKg: rest.weightRightKg ?? null,
+    repsLeft: rL,
+    repsRight: rR,
   };
 }
 
@@ -115,13 +131,27 @@ function toSavedSetBody(
   row: DraftRow,
 ): Pick<
   WorkoutSetRow,
-  "weightKg" | "reps" | "setKind" | "rir" | "weightLeftKg" | "weightRightKg"
+  | "weightKg"
+  | "reps"
+  | "setKind"
+  | "rir"
+  | "weightLeftKg"
+  | "weightRightKg"
+  | "repsLeft"
+  | "repsRight"
 > {
   const w = snapWeightToStepKg(row.weightKg, exerciseId);
   const r = Math.min(50, Math.max(0, Math.floor(row.reps)));
   const base: Pick<
     WorkoutSetRow,
-    "weightKg" | "reps" | "setKind" | "rir" | "weightLeftKg" | "weightRightKg"
+    | "weightKg"
+    | "reps"
+    | "setKind"
+    | "rir"
+    | "weightLeftKg"
+    | "weightRightKg"
+    | "repsLeft"
+    | "repsRight"
   > = {
     weightKg: w,
     reps: r,
@@ -129,26 +159,24 @@ function toSavedSetBody(
     rir: row.rir,
   };
   if (isUnilateralDumbbellExercise(exerciseId)) {
+    const rL = Math.min(50, Math.max(0, Math.floor(row.repsLeft)));
+    const rR = Math.min(50, Math.max(0, Math.floor(row.repsRight)));
     return {
       ...base,
-      weightLeftKg:
-        row.weightLeftKg != null
-          ? snapWeightToStepKg(row.weightLeftKg, exerciseId)
-          : null,
-      weightRightKg:
-        row.weightRightKg != null
-          ? snapWeightToStepKg(row.weightRightKg, exerciseId)
-          : null,
+      reps: rL + rR,
+      repsLeft: rL,
+      repsRight: rR,
+      weightLeftKg: null,
+      weightRightKg: null,
     };
   }
-  return { ...base, weightLeftKg: null, weightRightKg: null };
+  return { ...base, weightLeftKg: null, weightRightKg: null, repsLeft: null, repsRight: null };
 }
 
 export function DayRecordClient({ dateKey }: Props) {
   const [workoutId, setWorkoutId] = useState<string | null>(null);
-  const [trainingContext, setTrainingContext] = useState<TrainingContext | null>(
-    null,
-  );
+  const [trainingContext, setTrainingContext] =
+    useState<TrainingContext>("solo");
   const [bodyTab, setBodyTab] = useState<RecordBodyTabId>("chest");
   const [draftPanels, setDraftPanels] = useState<DraftPanel[]>([]);
   const [busy, setBusy] = useState(false);
@@ -162,6 +190,8 @@ export function DayRecordClient({ dateKey }: Props) {
   const [editRir, setEditRir] = useState<number | null>(null);
   const [editWeightLeft, setEditWeightLeft] = useState<number | null>(null);
   const [editWeightRight, setEditWeightRight] = useState<number | null>(null);
+  const [editRepsLeft, setEditRepsLeft] = useState(0);
+  const [editRepsRight, setEditRepsRight] = useState(0);
 
   const inputSectionRef = useRef<HTMLDivElement>(null);
 
@@ -185,14 +215,12 @@ export function DayRecordClient({ dateKey }: Props) {
     if (workoutId) return workoutId;
     const id = await getOrCreateWorkoutForSessionDate(dateKey);
     setWorkoutId(id);
-    if (trainingContext) {
-      await updateWorkoutTrainingContext(id, trainingContext);
-    }
+    await updateWorkoutTrainingContext(id, trainingContext);
     return id;
   }, [workoutId, dateKey, trainingContext]);
 
   const pickTraining = useCallback(
-    (ctx: TrainingContext | null) => {
+    (ctx: TrainingContext) => {
       setTrainingContext(ctx);
       if (workoutId) {
         void updateWorkoutTrainingContext(workoutId, ctx);
@@ -224,9 +252,9 @@ export function DayRecordClient({ dateKey }: Props) {
   );
 
   useEffect(() => {
-    if (workoutRow?.trainingContext) {
-      setTrainingContext(workoutRow.trainingContext);
-    }
+    setTrainingContext(
+      workoutRow?.trainingContext === "partner" ? "partner" : "solo",
+    );
   }, [workoutRow?.trainingContext]);
 
   const pendingMenu = useMemo(
@@ -433,6 +461,8 @@ export function DayRecordClient({ dateKey }: Props) {
                   rir: last.rir,
                   weightLeftKg: last.weightLeftKg,
                   weightRightKg: last.weightRightKg,
+                  repsLeft: last.repsLeft,
+                  repsRight: last.repsRight,
                   defaultExerciseId: exerciseId,
                 }
               : { defaultExerciseId: exerciseId },
@@ -488,7 +518,16 @@ export function DayRecordClient({ dateKey }: Props) {
         return;
       }
       for (const row of snap.draftSets) {
-        if (row.weightKg < 0 || row.reps < 0) {
+        if (isUnilateralDumbbellExercise(snap.exerciseId)) {
+          if (
+            row.weightKg < 0 ||
+            row.repsLeft < 0 ||
+            row.repsRight < 0
+          ) {
+            setErr("片手の重量と左右の回数は0以上にしてください。");
+            return;
+          }
+        } else if (row.weightKg < 0 || row.reps < 0) {
           setErr("重量と回数は0以上にしてください。");
           return;
         }
@@ -524,7 +563,16 @@ export function DayRecordClient({ dateKey }: Props) {
         return;
       }
       for (const row of draftSets) {
-        if (row.weightKg < 0 || row.reps < 0) {
+        if (isUnilateralDumbbellExercise(exerciseId)) {
+          if (
+            row.weightKg < 0 ||
+            row.repsLeft < 0 ||
+            row.repsRight < 0
+          ) {
+            setErr("片手の重量と左右の回数は0以上にしてください。");
+            return;
+          }
+        } else if (row.weightKg < 0 || row.reps < 0) {
           setErr("重量と回数は0以上にしてください。");
           return;
         }
@@ -559,6 +607,25 @@ export function DayRecordClient({ dateKey }: Props) {
     setEditReps(Math.min(50, Math.max(0, Math.floor(row.reps))));
     setEditSetKind(normalizeSetKind(row.setKind));
     setEditRir(row.rir ?? null);
+    if (isUnilateralDumbbellExercise(row.exerciseId)) {
+      if (
+        row.repsLeft != null &&
+        row.repsRight != null &&
+        Number.isFinite(row.repsLeft) &&
+        Number.isFinite(row.repsRight)
+      ) {
+        setEditRepsLeft(
+          Math.min(50, Math.max(0, Math.floor(row.repsLeft))),
+        );
+        setEditRepsRight(
+          Math.min(50, Math.max(0, Math.floor(row.repsRight))),
+        );
+      } else {
+        const r = Math.min(50, Math.max(0, Math.floor(row.reps)));
+        setEditRepsLeft(r);
+        setEditRepsRight(r);
+      }
+    }
     setEditWeightLeft(
       row.weightLeftKg != null
         ? snapWeightToStepKg(row.weightLeftKg, row.exerciseId)
@@ -589,13 +656,18 @@ export function DayRecordClient({ dateKey }: Props) {
         rir: editRir,
       };
       if (isUnilateralDumbbellExercise(exId)) {
-        patch.weightLeftKg =
-          editWeightLeft != null ? snapWeightToStepKg(editWeightLeft, exId) : null;
-        patch.weightRightKg =
-          editWeightRight != null ? snapWeightToStepKg(editWeightRight, exId) : null;
+        const rL = Math.min(50, Math.max(0, Math.floor(editRepsLeft)));
+        const rR = Math.min(50, Math.max(0, Math.floor(editRepsRight)));
+        patch.reps = rL + rR;
+        patch.repsLeft = rL;
+        patch.repsRight = rR;
+        patch.weightLeftKg = null;
+        patch.weightRightKg = null;
       } else {
         patch.weightLeftKg = null;
         patch.weightRightKg = null;
+        patch.repsLeft = null;
+        patch.repsRight = null;
       }
       await updateSet(editingSetId, patch);
       setEditingSetId(null);
@@ -614,6 +686,8 @@ export function DayRecordClient({ dateKey }: Props) {
     editRir,
     editWeightLeft,
     editWeightRight,
+    editRepsLeft,
+    editRepsRight,
   ]);
 
   const selectWheelClass =
@@ -635,7 +709,7 @@ export function DayRecordClient({ dateKey }: Props) {
 
         <section className="mt-4 rounded-2xl border border-zinc-200 bg-zinc-50/80 p-3 dark:border-zinc-700 dark:bg-zinc-900/50">
           <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-            今日のトレ（任意）
+            今日のトレ
           </p>
           <div className="mt-2 flex flex-wrap gap-2">
             <button
@@ -661,13 +735,6 @@ export function DayRecordClient({ dateKey }: Props) {
               )}
             >
               合同
-            </button>
-            <button
-              type="button"
-              onClick={() => pickTraining(null)}
-              className="rounded-xl px-3 py-1.5 text-sm text-zinc-500 ring-1 ring-zinc-200 dark:text-zinc-400 dark:ring-zinc-600"
-            >
-              未設定
             </button>
           </div>
         </section>
@@ -878,149 +945,125 @@ export function DayRecordClient({ dateKey }: Props) {
                         50,
                         Math.max(0, Math.floor(row.reps)),
                       );
+                      const rL = Math.min(
+                        50,
+                        Math.max(0, Math.floor(row.repsLeft)),
+                      );
+                      const rR = Math.min(
+                        50,
+                        Math.max(0, Math.floor(row.repsRight)),
+                      );
+                      const uni = isUnilateralDumbbellExercise(exId);
+                      const sk = normalizeSetKind(row.setKind);
+                      const setRowKindClass =
+                        sk === "warmup"
+                          ? "border-amber-200/90 bg-amber-50/50 dark:border-amber-800/50 dark:bg-amber-950/20"
+                          : sk === "dropset"
+                            ? "border-violet-200/90 bg-violet-50/50 dark:border-violet-800/50 dark:bg-violet-950/20"
+                            : "border-zinc-100 bg-zinc-50/90 dark:border-zinc-600 dark:bg-zinc-800/40";
                       return (
                         <div
                           key={row.id}
-                          className="rounded-xl border border-zinc-100 bg-zinc-50/90 p-4 dark:border-zinc-600 dark:bg-zinc-800/40"
+                          className={clsx(
+                            "rounded-xl border p-4",
+                            setRowKindClass,
+                          )}
                         >
-                          <div className="mb-3 flex items-center justify-between gap-2">
-                            <span className="text-sm font-semibold text-zinc-700 dark:text-zinc-200">
-                              セット {index + 1}
-                            </span>
-                            {draftSets.length > 1 && (
-                              <button
-                                type="button"
-                                className="text-xs text-red-600 hover:underline dark:text-red-400"
-                                onClick={() => removeDraftRow(exId, row.id)}
-                              >
-                                削除
-                              </button>
-                            )}
-                          </div>
+                          <SetRowKindRirHeader
+                            className="mb-3"
+                            setLabel={`セット ${index + 1}`}
+                            setKind={row.setKind}
+                            onSetKind={(k) =>
+                              updateDraft(exId, row.id, { setKind: k })
+                            }
+                            rir={row.rir}
+                            onRir={(r) =>
+                              updateDraft(exId, row.id, { rir: r })
+                            }
+                            showDelete={draftSets.length > 1}
+                            onDelete={() => removeDraftRow(exId, row.id)}
+                          />
 
-                          <div className="grid grid-cols-2 gap-3">
-                            <div>
-                              <label
-                                className="mb-1 block text-center text-xs font-medium text-zinc-500"
-                                htmlFor={`w-${exId}-${row.id}`}
-                              >
-                                重量 (kg)
-                              </label>
-                              <select
-                                id={`w-${exId}-${row.id}`}
-                                className={selectWheelClass}
-                                value={wVal}
-                                onChange={(e) =>
-                                  updateDraft(exId, row.id, {
-                                    weightKg: Number(e.target.value),
-                                  })
-                                }
-                              >
-                                {weightOptions.map((w) => (
-                                  <option key={w} value={w}>
-                                    {w % 1 === 0 ? w : w.toFixed(1)} kg
-                                  </option>
-                                ))}
-                              </select>
-                              <p className="mt-1 text-center text-[10px] text-zinc-400">
-                                タップしてスクロール選択（端末の標準UI）
-                              </p>
+                          {!uni && (
+                            <div className="grid grid-cols-2 gap-3">
+                              <div>
+                                <label
+                                  className="mb-1 block text-center text-xs font-medium text-zinc-500"
+                                  htmlFor={`w-${exId}-${row.id}`}
+                                >
+                                  重量 (kg)
+                                </label>
+                                <select
+                                  id={`w-${exId}-${row.id}`}
+                                  className={selectWheelClass}
+                                  value={wVal}
+                                  onChange={(e) =>
+                                    updateDraft(exId, row.id, {
+                                      weightKg: Number(e.target.value),
+                                    })
+                                  }
+                                >
+                                  {weightOptions.map((w) => (
+                                    <option key={w} value={w}>
+                                      {w % 1 === 0 ? w : w.toFixed(1)} kg
+                                    </option>
+                                  ))}
+                                </select>
+                                <p className="mt-1 text-center text-[10px] text-zinc-400">
+                                  タップしてスクロール選択（端末の標準UI）
+                                </p>
+                              </div>
+                              <div>
+                                <label
+                                  className="mb-1 block text-center text-xs font-medium text-zinc-500"
+                                  htmlFor={`r-${exId}-${row.id}`}
+                                >
+                                  回数
+                                </label>
+                                <select
+                                  id={`r-${exId}-${row.id}`}
+                                  className={selectWheelClass}
+                                  value={rVal}
+                                  onChange={(e) => {
+                                    const n = Number(e.target.value);
+                                    updateDraft(exId, row.id, { reps: n });
+                                  }}
+                                >
+                                  {REP_SELECT_OPTIONS.map((r) => (
+                                    <option key={r} value={r}>
+                                      {r} 回
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
                             </div>
-                            <div>
-                              <label
-                                className="mb-1 block text-center text-xs font-medium text-zinc-500"
-                                htmlFor={`r-${exId}-${row.id}`}
-                              >
-                                回数
-                              </label>
-                              <select
-                                id={`r-${exId}-${row.id}`}
-                                className={selectWheelClass}
-                                value={rVal}
-                                onChange={(e) =>
-                                  updateDraft(exId, row.id, {
-                                    reps: Number(e.target.value),
-                                  })
-                                }
-                              >
-                                {REP_SELECT_OPTIONS.map((r) => (
-                                  <option key={r} value={r}>
-                                    {r} 回
-                                  </option>
-                                ))}
-                              </select>
-                            </div>
-                          </div>
+                          )}
                           {exId === INCLINE_BENCH_PRESS_ID && (
                             <p className="mt-2 text-center text-[10px] text-amber-800/90 dark:text-amber-200/90">
                               1サイド分の重さ。ボリュームは左右合算で計算します。
                             </p>
                           )}
-                          <div className="mt-3 flex flex-wrap items-center gap-2">
-                            <span className="text-[10px] font-medium text-zinc-500">
-                              種別
-                            </span>
-                            {(
-                              [
-                                { k: "main" as const, label: "メイン" },
-                                { k: "warmup" as const, label: "W" },
-                                { k: "dropset" as const, label: "D" },
-                              ] as const
-                            ).map(({ k, label }) => (
-                              <button
-                                key={k}
-                                type="button"
-                                onClick={() => updateDraft(exId, row.id, { setKind: k })}
-                                className={clsx(
-                                  "rounded-lg px-2.5 py-1 text-xs font-semibold",
-                                  row.setKind === k
-                                    ? "bg-zinc-800 text-white dark:bg-zinc-200 dark:text-zinc-900"
-                                    : "bg-zinc-200/80 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300",
-                                )}
-                              >
-                                {label}
-                              </button>
-                            ))}
-                            <label className="ml-1 flex items-center gap-1 text-xs text-zinc-500">
-                              RIR
-                              <select
-                                value={row.rir == null ? "" : String(row.rir)}
-                                onChange={(e) => {
-                                  const v = e.target.value;
-                                  updateDraft(exId, row.id, {
-                                    rir: v === "" ? null : Number(v),
-                                  });
-                                }}
-                                className="rounded border border-zinc-200 bg-white px-1 py-0.5 text-zinc-800 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100"
-                              >
-                                <option value="">—</option>
-                                {Array.from({ length: 11 }, (_, i) => i).map((r) => (
-                                  <option key={r} value={r}>
-                                    {r}
-                                  </option>
-                                ))}
-                              </select>
-                            </label>
-                          </div>
-                          {isUnilateralDumbbellExercise(exId) && (
-                            <div className="mt-2 grid grid-cols-2 gap-3">
+                          {exId === INCLINE_DUMBBELL_PRESS_ID && !uni && (
+                            <p className="mt-2 text-center text-[10px] text-amber-800/90 dark:text-amber-200/90">
+                              片手1個分の重さ。ボリュームは左右分（×2）で計算します。
+                            </p>
+                          )}
+                          {uni && (
+                            <div className="space-y-3">
                               <div>
-                                <label className="mb-1 block text-center text-xs text-zinc-500">
-                                  左 (kg)
+                                <label
+                                  className="mb-1 block text-center text-xs font-medium text-zinc-500"
+                                  htmlFor={`uw-${exId}-${row.id}`}
+                                >
+                                  片手 重量 (kg)
                                 </label>
                                 <select
+                                  id={`uw-${exId}-${row.id}`}
                                   className={selectWheelClass}
-                                  value={
-                                    row.weightLeftKg != null
-                                      ? snapWeightToStepKg(
-                                          row.weightLeftKg,
-                                          exId,
-                                        )
-                                    : wVal
-                                  }
+                                  value={wVal}
                                   onChange={(e) =>
                                     updateDraft(exId, row.id, {
-                                      weightLeftKg: Number(e.target.value),
+                                      weightKg: Number(e.target.value),
                                     })
                                   }
                                 >
@@ -1030,33 +1073,63 @@ export function DayRecordClient({ dateKey }: Props) {
                                     </option>
                                   ))}
                                 </select>
+                                <p className="mt-1 text-center text-[10px] text-zinc-400">
+                                  タップしてスクロール選択
+                                </p>
                               </div>
-                              <div>
-                                <label className="mb-1 block text-center text-xs text-zinc-500">
-                                  右 (kg)
-                                </label>
-                                <select
-                                  className={selectWheelClass}
-                                  value={
-                                    row.weightRightKg != null
-                                      ? snapWeightToStepKg(
-                                          row.weightRightKg,
-                                          exId,
-                                        )
-                                    : wVal
-                                  }
-                                  onChange={(e) =>
-                                    updateDraft(exId, row.id, {
-                                      weightRightKg: Number(e.target.value),
-                                    })
-                                  }
-                                >
-                                  {weightOptions.map((w) => (
-                                    <option key={w} value={w}>
-                                      {w % 1 === 0 ? w : w.toFixed(1)} kg
-                                    </option>
-                                  ))}
-                                </select>
+                              <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                  <label
+                                    className="mb-1 block text-center text-xs font-medium text-zinc-500"
+                                    htmlFor={`rl-${exId}-${row.id}`}
+                                  >
+                                    左 回数
+                                  </label>
+                                  <select
+                                    id={`rl-${exId}-${row.id}`}
+                                    className={selectWheelClass}
+                                    value={rL}
+                                    onChange={(e) => {
+                                      const n = Number(e.target.value);
+                                      updateDraft(exId, row.id, {
+                                        repsLeft: n,
+                                        reps: n + rR,
+                                      });
+                                    }}
+                                  >
+                                    {REP_SELECT_OPTIONS.map((r) => (
+                                      <option key={r} value={r}>
+                                        {r} 回
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                                <div>
+                                  <label
+                                    className="mb-1 block text-center text-xs font-medium text-zinc-500"
+                                    htmlFor={`rr-${exId}-${row.id}`}
+                                  >
+                                    右 回数
+                                  </label>
+                                  <select
+                                    id={`rr-${exId}-${row.id}`}
+                                    className={selectWheelClass}
+                                    value={rR}
+                                    onChange={(e) => {
+                                      const n = Number(e.target.value);
+                                      updateDraft(exId, row.id, {
+                                        repsRight: n,
+                                        reps: rL + n,
+                                      });
+                                    }}
+                                  >
+                                    {REP_SELECT_OPTIONS.map((r) => (
+                                      <option key={r} value={r}>
+                                        {r} 回
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
                               </div>
                             </div>
                           )}
@@ -1224,15 +1297,92 @@ export function DayRecordClient({ dateKey }: Props) {
                         {rows.map((rrow, idx) => (
                           <li
                             key={rrow.id}
-                            className="flex flex-col gap-3 bg-white/50 px-4 py-3 dark:bg-zinc-950/40"
+                            className="flex flex-col gap-2 bg-white/50 px-4 py-3 dark:bg-zinc-950/40"
                           >
-                            <div className="flex flex-wrap items-center justify-between gap-2">
-                              <div className="flex min-w-0 flex-1 items-center gap-3">
-                                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-800 dark:bg-blue-950 dark:text-blue-200">
-                                  {idx + 1}
-                                </span>
-                                {editingSetId === rrow.id ? (
-                                  <div className="flex w-full min-w-0 max-w-md flex-col gap-2">
+                            {editingSetId === rrow.id ? (
+                              <>
+                                <SetRowKindRirHeader
+                                  setLabel={`セット ${idx + 1}`}
+                                  setKind={editSetKind}
+                                  onSetKind={setEditSetKind}
+                                  rir={editRir}
+                                  onRir={setEditRir}
+                                  rightSlot={
+                                    <>
+                                      <button
+                                        type="button"
+                                        disabled={busy}
+                                        className="rounded-lg px-2 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                                        onClick={cancelEditSet}
+                                      >
+                                        キャンセル
+                                      </button>
+                                      <button
+                                        type="button"
+                                        disabled={busy}
+                                        className="rounded-lg bg-blue-600 px-2 py-1 text-xs font-semibold text-white hover:bg-blue-500 disabled:opacity-50"
+                                        onClick={() => void saveEditSet()}
+                                      >
+                                        保存
+                                      </button>
+                                    </>
+                                  }
+                                />
+                                <div className="max-w-md">
+                                  {isUnilateralDumbbellExercise(exId) ? (
+                                    <>
+                                      <select
+                                        aria-label="片手 重量 (kg)"
+                                        className={selectWheelClass}
+                                        value={snapWeightToStepKg(
+                                          editWeightKg,
+                                          exId,
+                                        )}
+                                        onChange={(e) =>
+                                          setEditWeightKg(Number(e.target.value))
+                                        }
+                                      >
+                                        {getWeightSelectOptionsForExercise(
+                                          exId,
+                                        ).map((w) => (
+                                          <option key={w} value={w}>
+                                            片手{" "}
+                                            {w % 1 === 0 ? w : w.toFixed(1)} kg
+                                          </option>
+                                        ))}
+                                      </select>
+                                      <div className="mt-2 grid grid-cols-2 gap-2">
+                                        <select
+                                          aria-label="左 回数"
+                                          className={selectWheelClass}
+                                          value={editRepsLeft}
+                                          onChange={(e) =>
+                                            setEditRepsLeft(Number(e.target.value))
+                                          }
+                                        >
+                                          {REP_SELECT_OPTIONS.map((r) => (
+                                            <option key={r} value={r}>
+                                              左 {r} 回
+                                            </option>
+                                          ))}
+                                        </select>
+                                        <select
+                                          aria-label="右 回数"
+                                          className={selectWheelClass}
+                                          value={editRepsRight}
+                                          onChange={(e) =>
+                                            setEditRepsRight(Number(e.target.value))
+                                          }
+                                        >
+                                          {REP_SELECT_OPTIONS.map((r) => (
+                                            <option key={r} value={r}>
+                                              右 {r} 回
+                                            </option>
+                                          ))}
+                                        </select>
+                                      </div>
+                                    </>
+                                  ) : (
                                     <div className="grid grid-cols-2 gap-2">
                                       <select
                                         className={selectWheelClass}
@@ -1269,170 +1419,88 @@ export function DayRecordClient({ dateKey }: Props) {
                                         ))}
                                       </select>
                                     </div>
-                                    <div className="flex flex-wrap items-center gap-2">
-                                      {(
-                                        [
-                                          { k: "main" as const, label: "メイン" },
-                                          { k: "warmup" as const, label: "W" },
-                                          { k: "dropset" as const, label: "D" },
-                                        ] as const
-                                      ).map(({ k, label }) => (
-                                        <button
-                                          key={k}
-                                          type="button"
-                                          onClick={() => setEditSetKind(k)}
-                                          className={clsx(
-                                            "rounded-lg px-2 py-0.5 text-xs font-semibold",
-                                            editSetKind === k
-                                              ? "bg-zinc-800 text-white dark:bg-zinc-200 dark:text-zinc-900"
-                                              : "bg-zinc-200/80 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300",
-                                          )}
-                                        >
-                                          {label}
-                                        </button>
-                                      ))}
-                                      <label className="flex items-center gap-1 text-xs text-zinc-500">
-                                        RIR
-                                        <select
-                                          value={editRir == null ? "" : String(editRir)}
-                                          onChange={(e) => {
-                                            const v = e.target.value;
-                                            setEditRir(
-                                              v === "" ? null : Number(v),
-                                            );
-                                          }}
-                                          className="rounded border border-zinc-200 bg-white px-1 text-zinc-800 dark:border-zinc-600 dark:bg-zinc-800"
-                                        >
-                                          <option value="">—</option>
-                                          {Array.from(
-                                            { length: 11 },
-                                            (_, i) => i,
-                                          ).map((r) => (
-                                            <option key={r} value={r}>
-                                              {r}
-                                            </option>
-                                          ))}
-                                        </select>
-                                      </label>
-                                    </div>
-                                    {isUnilateralDumbbellExercise(exId) && (
-                                      <div className="grid grid-cols-2 gap-2">
-                                        <select
-                                          className={selectWheelClass}
-                                          value={snapWeightToStepKg(
-                                            editWeightLeft ?? editWeightKg,
-                                            exId,
-                                          )}
-                                          onChange={(e) =>
-                                            setEditWeightLeft(Number(e.target.value))
-                                          }
-                                        >
-                                          {getWeightSelectOptionsForExercise(
-                                            exId,
-                                          ).map((w) => (
-                                            <option key={w} value={w}>
-                                              左 {w % 1 === 0 ? w : w.toFixed(1)} kg
-                                            </option>
-                                          ))}
-                                        </select>
-                                        <select
-                                          className={selectWheelClass}
-                                          value={snapWeightToStepKg(
-                                            editWeightRight ?? editWeightKg,
-                                            exId,
-                                          )}
-                                          onChange={(e) =>
-                                            setEditWeightRight(Number(e.target.value))
-                                          }
-                                        >
-                                          {getWeightSelectOptionsForExercise(
-                                            exId,
-                                          ).map((w) => (
-                                            <option key={w} value={w}>
-                                              右 {w % 1 === 0 ? w : w.toFixed(1)} kg
-                                            </option>
-                                          ))}
-                                        </select>
-                                      </div>
-                                    )}
-                                  </div>
-                                ) : (
-                                  <span className="flex flex-wrap items-center gap-2 font-mono text-sm tabular-nums text-zinc-800 dark:text-zinc-200">
-                                    {normalizeSetKind(rrow.setKind) !==
-                                      "main" && (
-                                      <span className="rounded bg-amber-100 px-1 text-[10px] text-amber-900 dark:bg-amber-900/50 dark:text-amber-100">
-                                        {normalizeSetKind(rrow.setKind) ===
-                                        "warmup"
-                                          ? "W"
-                                          : "D"}
-                                      </span>
-                                    )}
-                                    {isUnilateralDumbbellExercise(exId) &&
-                                    (rrow.weightLeftKg != null ||
-                                      rrow.weightRightKg != null) ? (
-                                      <>
-                                        L {rrow.weightLeftKg ?? "—"} / R{" "}
-                                        {rrow.weightRightKg ?? "—"} ×{" "}
-                                        {rrow.reps} 回
-                                      </>
-                                    ) : (
-                                      <>
-                                        {rrow.weightKg} kg × {rrow.reps} 回
-                                        {exId === INCLINE_BENCH_PRESS_ID && (
-                                          <span className="text-[10px] text-zinc-500">
-                                            （1サイド表記・換算2倍）
-                                          </span>
-                                        )}
-                                      </>
-                                    )}
-                                    {rrow.rir != null && (
-                                      <span className="text-xs text-zinc-500">
-                                        RIR{rrow.rir}
-                                      </span>
-                                    )}
+                                  )}
+                                </div>
+                              </>
+                            ) : (
+                              <div className="flex flex-wrap items-start justify-between gap-2">
+                                <div className="flex min-w-0 flex-1 items-start gap-2 sm:gap-3">
+                                  <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-800 dark:bg-blue-950 dark:text-blue-200">
+                                    {idx + 1}
                                   </span>
-                                )}
+                                  <div className="min-w-0 space-y-1">
+                                    <p className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+                                      <span className="font-semibold text-zinc-700 dark:text-zinc-200">
+                                        セット {idx + 1}
+                                      </span>
+                                      <span>
+                                        {normalizeSetKind(rrow.setKind) ===
+                                        "main"
+                                          ? "メイン"
+                                          : normalizeSetKind(rrow.setKind) ===
+                                              "warmup"
+                                            ? "W"
+                                            : "D"}
+                                      </span>
+                                      <span>
+                                        RIR{" "}
+                                        {rrow.rir == null
+                                          ? "—"
+                                          : rrow.rir}
+                                      </span>
+                                    </p>
+                                    <span className="flex flex-wrap items-center gap-2 font-mono text-sm tabular-nums text-zinc-800 dark:text-zinc-200">
+                                      {isUnilateralDumbbellExercise(exId) &&
+                                      (rrow.weightLeftKg != null ||
+                                        rrow.weightRightKg != null) ? (
+                                        <>
+                                          L {rrow.weightLeftKg ?? "—"} / R{" "}
+                                          {rrow.weightRightKg ?? "—"} ×{" "}
+                                          {rrow.reps} 回
+                                        </>
+                                      ) : isUnilateralDumbbellExercise(exId) ? (
+                                        <>
+                                          {rrow.weightKg} kg 片手 左{" "}
+                                          {rrow.repsLeft ?? rrow.reps} 回 右{" "}
+                                          {rrow.repsRight ?? rrow.reps} 回
+                                        </>
+                                      ) : (
+                                        <>
+                                          {rrow.weightKg} kg × {rrow.reps} 回
+                                          {exId === INCLINE_BENCH_PRESS_ID && (
+                                            <span className="text-[10px] text-zinc-500">
+                                              （1サイド表記・換算2倍）
+                                            </span>
+                                          )}
+                                          {exId ===
+                                            INCLINE_DUMBBELL_PRESS_ID && (
+                                            <span className="text-[10px] text-zinc-500">
+                                              （片手1個・換算2倍）
+                                            </span>
+                                          )}
+                                        </>
+                                      )}
+                                    </span>
+                                  </div>
+                                </div>
+                                <div className="flex shrink-0 flex-wrap items-center gap-1">
+                                  <button
+                                    type="button"
+                                    className="rounded-lg px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950/40"
+                                    onClick={() => startEditSet(rrow)}
+                                  >
+                                    編集
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="rounded-lg px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/50"
+                                    onClick={() => void removeSet(rrow.id)}
+                                  >
+                                    削除
+                                  </button>
+                                </div>
                               </div>
-                              <div className="flex shrink-0 flex-wrap items-center gap-1">
-                                {editingSetId === rrow.id ? (
-                                  <>
-                                    <button
-                                      type="button"
-                                      disabled={busy}
-                                      className="rounded-lg px-2 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
-                                      onClick={cancelEditSet}
-                                    >
-                                      キャンセル
-                                    </button>
-                                    <button
-                                      type="button"
-                                      disabled={busy}
-                                      className="rounded-lg bg-blue-600 px-2 py-1 text-xs font-semibold text-white hover:bg-blue-500 disabled:opacity-50"
-                                      onClick={() => void saveEditSet()}
-                                    >
-                                      保存
-                                    </button>
-                                  </>
-                                ) : (
-                                  <>
-                                    <button
-                                      type="button"
-                                      className="rounded-lg px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950/40"
-                                      onClick={() => startEditSet(rrow)}
-                                    >
-                                      編集
-                                    </button>
-                                    <button
-                                      type="button"
-                                      className="rounded-lg px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/50"
-                                      onClick={() => void removeSet(rrow.id)}
-                                    >
-                                      削除
-                                    </button>
-                                  </>
-                                )}
-                              </div>
-                            </div>
+                            )}
                           </li>
                         ))}
                       </ul>

@@ -45,7 +45,12 @@ export type WorkoutSetRow = {
   /** セッション内の表示順 */
   order: number;
   weightKg: number;
+  /** 合計 or 従来の単一回数。片手左右別回数のときは repsLeft+repsRight と同値を推奨 */
   reps: number;
+  /** 片手種目: 左の回数（従来データは未設定） */
+  repsLeft?: number | null;
+  /** 片手種目: 右の回数 */
+  repsRight?: number | null;
   /** 未設定はメイン扱い（従来データ互換） */
   setKind?: SetKind;
   /** Reps in Reserve（未入力可） */

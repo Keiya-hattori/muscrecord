@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { AppNav } from "@/components/AppNav";
+import { Big3RecordsWidget } from "@/components/Big3RecordsWidget";
 import { todayLocalDateKey } from "@/lib/dateKey";
 
 export function HomeClient() {
@@ -32,9 +33,6 @@ export function HomeClient() {
           <h1 className="text-3xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
             筋トレ記録
           </h1>
-          <p className="mt-3 text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">
-            日付を決めて記録を開始するか、メニュー提案ページで条件を整えてから生成できます。データは基本は端末のみに保存されます。
-          </p>
         </div>
 
         <div className="min-w-0 max-w-full rounded-2xl border border-zinc-200/80 bg-white/80 p-4 shadow-sm backdrop-blur-sm dark:border-white/10 dark:bg-white/[0.04]">
@@ -60,6 +58,8 @@ export function HomeClient() {
         >
           この日の記録を開く
         </button>
+
+        <Big3RecordsWidget />
 
         <div className="rounded-2xl border border-zinc-200/80 bg-white/70 p-5 backdrop-blur-sm dark:border-white/10 dark:bg-white/[0.03]">
           <p className="text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">

@@ -106,7 +106,7 @@ export function WorkoutSessionClient({ workoutId }: Props) {
   }, [setsInSession]);
 
   const pickTraining = useCallback(
-    (ctx: TrainingContext | null) => {
+    (ctx: TrainingContext) => {
       void updateWorkoutTrainingContext(workoutId, ctx);
     },
     [workoutId],
@@ -147,7 +147,7 @@ export function WorkoutSessionClient({ workoutId }: Props) {
                 className="date-input-native mt-2 w-full max-w-xs rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-2 text-base text-zinc-900 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-50"
               />
               <p className="mt-4 text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                今日のトレ（任意）
+                今日のトレ
               </p>
               <div className="mt-2 flex flex-wrap gap-2">
                 <button
@@ -155,7 +155,7 @@ export function WorkoutSessionClient({ workoutId }: Props) {
                   onClick={() => pickTraining("solo")}
                   className={clsx(
                     "rounded-xl px-3 py-1.5 text-sm font-medium",
-                    workout.trainingContext === "solo"
+                    workout.trainingContext !== "partner"
                       ? "bg-indigo-600 text-white"
                       : "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200",
                   )}
@@ -173,13 +173,6 @@ export function WorkoutSessionClient({ workoutId }: Props) {
                   )}
                 >
                   合同
-                </button>
-                <button
-                  type="button"
-                  onClick={() => pickTraining(null)}
-                  className="rounded-xl px-3 py-1.5 text-sm text-zinc-500 ring-1 ring-zinc-200 dark:text-zinc-400 dark:ring-zinc-600"
-                >
-                  未設定
                 </button>
               </div>
             </div>

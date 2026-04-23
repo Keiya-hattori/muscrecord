@@ -104,7 +104,10 @@ export function HistoryClient() {
   const filteredWorkouts = useMemo(() => {
     if (!workouts) return null;
     if (sessionFilter === "all") return workouts;
-    return workouts.filter((w) => w.trainingContext === sessionFilter);
+    if (sessionFilter === "partner") {
+      return workouts.filter((w) => w.trainingContext === "partner");
+    }
+    return workouts.filter((w) => w.trainingContext !== "partner");
   }, [workouts, sessionFilter]);
 
   const bestDay: BestDayResult | null = useMemo(() => {
