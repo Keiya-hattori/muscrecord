@@ -92,11 +92,12 @@ export async function groupHistoryByExercise(): Promise<ExerciseHistoryGroup[]> 
   for (const w of workouts) {
     const dk = w.sessionDate;
     for (const s of w.sets) {
+      if (!countsAsMainSet(s)) continue;
       const inner =
         byEx.get(s.exerciseId) ??
         new Map<string, { setCount: number; volumeKg: number }>();
       const cur = inner.get(dk) ?? { setCount: 0, volumeKg: 0 };
-      cur.setCount += countsAsMainSet(s) ? 1 : 0;
+      cur.setCount += 1;
       cur.volumeKg += effectiveSetVolumeFromRow(s, bodyWeightKg);
       inner.set(dk, cur);
       byEx.set(s.exerciseId, inner);

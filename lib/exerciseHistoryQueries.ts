@@ -11,7 +11,7 @@ export type BestDaySetRow = {
   order: number;
 };
 
-/** その日の総ボリュームが最大の日の全セット */
+/** その日のメイン合計ボリュームが最大の日のメインセット */
 export type BestDayStandard = {
   kind: "standard";
   dateKey: string;
@@ -19,7 +19,7 @@ export type BestDayStandard = {
   totalVolume: number;
 };
 
-/** 合計回数が最大の日の全セット（懸垂） */
+/** メイン合計回数が最大の日のメインセット（懸垂） */
 export type BestDayPullup = {
   kind: "pullup";
   dateKey: string;
@@ -43,7 +43,8 @@ function sortSetsToRows(
   exerciseId: string,
   bodyWeightKg: number | null,
 ): BestDaySetRow[] {
-  const sorted = [...arr].sort((a, b) => {
+  const mainOnly = arr.filter(({ s }) => countsAsMainSet(s));
+  const sorted = [...mainOnly].sort((a, b) => {
     if (a.w.startedAt !== b.w.startedAt) return a.w.startedAt - b.w.startedAt;
     return a.s.order - b.s.order;
   });
@@ -55,7 +56,7 @@ function sortSetsToRows(
   }));
 }
 
-/** 歴代「ベストの日」— その日の全セット。懸垂は合計回数が最大の日 */
+/** 歴代「ベストの日」— メインセットのみ比較・列挙。懸垂はメイン合計回数で比較 */
 export function computeBestDayForExercise(
   exerciseId: string,
   workouts: WorkoutWithVolume[],
@@ -107,7 +108,11 @@ export function computeBestDayForExercise(
   let maxVol = -1;
   for (const [dk, arr] of byDate) {
     const totalVol = arr.reduce(
-      (sum, { s }) => sum + effectiveSetVolumeFromRow(s, bodyWeightKg),
+      (sum, { s }) =>
+        sum +
+        (countsAsMainSet(s)
+          ? effectiveSetVolumeFromRow(s, bodyWeightKg)
+          : 0),
       0,
     );
     if (
@@ -139,10 +144,11 @@ function aggregateDaysForExercise(
   for (const w of workouts) {
     for (const s of w.sets) {
       if (s.exerciseId !== exerciseId) continue;
+      if (!countsAsMainSet(s)) continue;
       const dk = w.sessionDate;
       const cur = byDate.get(dk) ?? { volumeKg: 0, setCount: 0 };
       cur.volumeKg += effectiveSetVolumeFromRow(s, bodyWeightKg);
-      if (countsAsMainSet(s)) cur.setCount += 1;
+      cur.setCount += 1;
       byDate.set(dk, cur);
     }
   }

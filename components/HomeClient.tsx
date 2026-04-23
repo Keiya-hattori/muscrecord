@@ -34,7 +34,7 @@ export function HomeClient() {
           </h1>
         </div>
 
-        <div className="min-w-0 max-w-full rounded-2xl border border-zinc-200/80 bg-white/80 p-4 shadow-sm backdrop-blur-sm dark:border-white/10 dark:bg-white/[0.04]">
+        <div className="min-w-0 max-w-full rounded-2xl border border-zinc-200/80 bg-white/80 p-3 shadow-sm backdrop-blur-sm dark:border-white/10 dark:bg-white/[0.04] sm:p-3.5">
           <label
             htmlFor="session-date"
             className="block text-sm font-medium text-zinc-700 dark:text-zinc-200"
@@ -46,7 +46,7 @@ export function HomeClient() {
             type="date"
             value={sessionDate}
             onChange={(e) => setSessionDate(e.target.value)}
-            className="date-input-native mt-2 box-border w-full min-w-0 max-w-full rounded-xl border border-zinc-300/80 bg-white/90 px-3 py-3 text-base text-zinc-900 dark:border-white/15 dark:bg-zinc-900/70 dark:text-zinc-50 sm:px-4"
+            className="date-input-native date-input-native--compact mt-1.5 box-border h-10 w-full min-w-0 max-w-full overflow-hidden rounded-lg border border-zinc-300/80 bg-white/90 px-2.5 text-sm leading-tight text-zinc-900 dark:border-white/15 dark:bg-zinc-900/70 dark:text-zinc-50 sm:px-3"
           />
         </div>
 

@@ -65,4 +65,24 @@ body {
 .date-input-native::-webkit-calendar-picker-indicator {
   flex-shrink: 0;
   margin-inline-start: 0.25rem;
+  cursor: pointer;
+}
+
+/* ホーム等：日付1行分の高さに抑制し、内側の表示がはみ出しにくくする */
+.date-input-native--compact {
+  min-height: 0;
+  max-height: 2.5rem;
+}
+
+.date-input-native--compact::-webkit-datetime-edit,
+.date-input-native--compact::-webkit-datetime-edit-fields-wrapper {
+  max-height: 2.5rem;
+}
+
+.date-input-native--compact::-webkit-calendar-picker-indicator {
+  width: 1.125rem;
+  height: 1.125rem;
+  margin-inline: 0.2rem 0.1rem;
+  padding: 0;
+  opacity: 0.9;
 }

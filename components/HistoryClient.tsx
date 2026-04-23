@@ -141,7 +141,7 @@ export function HistoryClient() {
           種目別の記録
         </h1>
         <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-300">
-          上のリストで種目を選ぶと、ベストの日の全セットと直近5日分を表示します。お気に入りは設定から編集できます。
+          上のリストで種目を選ぶと、ベストの日のメインセットと直近5日分（メインのみ集計）を表示します。お気に入りは設定から編集できます。
         </p>
 
         <div className="mt-4 flex flex-wrap gap-2">
