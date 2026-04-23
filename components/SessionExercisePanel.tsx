@@ -1,5 +1,6 @@
 "use client";
 
+import clsx from "clsx";
 import { useLiveQuery } from "dexie-react-hooks";
 import {
   addSet,
@@ -14,6 +15,8 @@ import {
   getDefaultWeightKgForExercise,
 } from "@/lib/defaultWeightKg";
 import { snapWeightToStepKg } from "@/lib/recordBodyTabs";
+import { normalizeSetKind } from "@/lib/setVolume";
+import type { SetKind } from "@/lib/types";
 import { ExerciseCover } from "@/components/ExerciseCover";
 import { StepChip } from "@/components/StepChip";
 
@@ -56,6 +59,7 @@ export function SessionExercisePanel({
       order,
       weightKg: snapWeightToStepKg(lastFromPrevious.weightKg, exerciseId),
       reps: lastFromPrevious.reps,
+      setKind: "main",
     });
   }
 
@@ -74,6 +78,7 @@ export function SessionExercisePanel({
       order,
       weightKg: snapWeightToStepKg(weightKg, exerciseId),
       reps,
+      setKind: lastInPanel?.setKind ?? "main",
     });
   }
 
@@ -245,6 +250,54 @@ export function SessionExercisePanel({
                   />
                 </div>
               </div>
+            </div>
+
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-zinc-200 pt-3 dark:border-zinc-600">
+              <div className="flex flex-wrap gap-1">
+                {(
+                  [
+                    { k: "main" as const, label: "メイン" },
+                    { k: "warmup" as const, label: "W" },
+                    { k: "dropset" as const, label: "D" },
+                  ] as const
+                ).map(({ k, label }) => (
+                  <button
+                    key={k}
+                    type="button"
+                    onClick={() =>
+                      void updateSet(row.id, { setKind: k as SetKind })
+                    }
+                    className={clsx(
+                      "rounded-lg px-2 py-1 text-xs font-semibold",
+                      normalizeSetKind(row.setKind) === k
+                        ? "bg-zinc-800 text-white dark:bg-zinc-200 dark:text-zinc-900"
+                        : "bg-zinc-200/80 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300",
+                    )}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <label className="flex items-center gap-1 text-xs text-zinc-500">
+                RIR
+                <select
+                  value={row.rir == null ? "" : String(row.rir)}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    void updateSet(row.id, {
+                      rir: v === "" ? null : Number(v),
+                    });
+                  }}
+                  className="rounded border border-zinc-200 bg-white px-1 py-0.5 text-zinc-800 dark:border-zinc-600 dark:bg-zinc-800"
+                >
+                  <option value="">—</option>
+                  {Array.from({ length: 11 }, (_, i) => i).map((r) => (
+                    <option key={r} value={r}>
+                      {r}
+                    </option>
+                  ))}
+                </select>
+              </label>
             </div>
           </li>
         ))}

@@ -65,31 +65,31 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   {
     id: "sets_50",
     title: "セット職人",
-    description: "累計セット数 50 回",
+    description: "累計メインセット数 50 回（ウォームアップ等を除く）",
     icon: "🔢",
   },
   {
     id: "sets_200",
     title: "ボリューム蓄積",
-    description: "累計セット数 200 回",
+    description: "累計メインセット数 200 回（ウォームアップ等を除く）",
     icon: "📊",
   },
   {
     id: "sets_500",
     title: "セットマシン",
-    description: "累計セット数 500 回",
+    description: "累計メインセット数 500 回（ウォームアップ等を除く）",
     icon: "🤖",
   },
   {
     id: "sets_1000",
     title: "千回の反復",
-    description: "累計セット数 1,000 回",
+    description: "累計メインセット数 1,000 回（ウォームアップ等を除く）",
     icon: "🔥",
   },
   {
     id: "sets_2000",
     title: "反復の化身",
-    description: "累計セット数 2,000 回",
+    description: "累計メインセット数 2,000 回（ウォームアップ等を除く）",
     icon: "💪",
   },
   {

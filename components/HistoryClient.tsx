@@ -40,6 +40,9 @@ export function HistoryClient() {
     getEffectiveFavoriteIds(loadHistoryFavoriteIds()),
   );
   const [selectedExerciseId, setSelectedExerciseId] = useState<string>("");
+  const [sessionFilter, setSessionFilter] = useState<"all" | "solo" | "partner">(
+    "all",
+  );
   const [bodyWeightKg, setBodyWeightKg] = useState<number | null>(null);
   const [workouts, setWorkouts] = useState<Awaited<
     ReturnType<typeof loadWorkoutsForHistory>
@@ -98,24 +101,30 @@ export function HistoryClient() {
     setSelectedExerciseId(firstFav ?? sortedOptions[0].id);
   }, [selectedExerciseId, sortedOptions, favoriteIds]);
 
+  const filteredWorkouts = useMemo(() => {
+    if (!workouts) return null;
+    if (sessionFilter === "all") return workouts;
+    return workouts.filter((w) => w.trainingContext === sessionFilter);
+  }, [workouts, sessionFilter]);
+
   const bestDay: BestDayResult | null = useMemo(() => {
-    if (!workouts || !selectedExerciseId) return null;
+    if (!filteredWorkouts || !selectedExerciseId) return null;
     return computeBestDayForExercise(
       selectedExerciseId,
-      workouts,
+      filteredWorkouts,
       bodyWeightKg,
     );
-  }, [workouts, selectedExerciseId, bodyWeightKg]);
+  }, [filteredWorkouts, selectedExerciseId, bodyWeightKg]);
 
   const recent: ExerciseDaySummary[] = useMemo(() => {
-    if (!workouts || !selectedExerciseId) return [];
+    if (!filteredWorkouts || !selectedExerciseId) return [];
     return getRecentDaysForExercise(
       selectedExerciseId,
-      workouts,
+      filteredWorkouts,
       5,
       bodyWeightKg,
     );
-  }, [workouts, selectedExerciseId, bodyWeightKg]);
+  }, [filteredWorkouts, selectedExerciseId, bodyWeightKg]);
 
   const selectedMeta = selectedExerciseId
     ? getExerciseById(selectedExerciseId)
@@ -130,6 +139,33 @@ export function HistoryClient() {
         </h1>
         <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-300">
           上のリストで種目を選ぶと、ベストの日の全セットと直近5日分を表示します。お気に入りは設定から編集できます。
+        </p>
+
+        <div className="mt-4 flex flex-wrap gap-2">
+          {(
+            [
+              { id: "all" as const, label: "すべて" },
+              { id: "solo" as const, label: "ソロ" },
+              { id: "partner" as const, label: "合同" },
+            ] as const
+          ).map(({ id, label }) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setSessionFilter(id)}
+              className={clsx(
+                "rounded-full px-3 py-1.5 text-sm font-medium transition",
+                sessionFilter === id
+                  ? "bg-violet-600 text-white"
+                  : "bg-zinc-200/80 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200",
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+          昔の記録で「ソロ/合同」未設定のものは「すべて」に含まれます。
         </p>
 
         <div className="mt-6">

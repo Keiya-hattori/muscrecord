@@ -77,6 +77,7 @@ const DUMBBELL_EXERCISE_IDS = new Set<string>([
   "front_raise",
   "rear_delt_fly",
   "bicep_curl",
+  "standing_dumbbell_curl",
   "incline_bicep_curl",
   "hammer_curl",
   "preacher_curl",
@@ -91,7 +92,9 @@ function isDumbbellExercise(exerciseId?: string): boolean {
 
 export function minWeightKgForExercise(exerciseId?: string): number {
   if (!exerciseId) return 0;
-  if (exerciseId === "bench_press") return BENCH_PRESS_MIN_WEIGHT_KG;
+  if (exerciseId === "bench_press" || exerciseId === "incline_bench_press") {
+    return BENCH_PRESS_MIN_WEIGHT_KG;
+  }
   if (isDumbbellExercise(exerciseId)) return DUMBBELL_MIN_WEIGHT_KG;
   return 0;
 }
@@ -115,7 +118,7 @@ function createWeightOptionsForExercise(exerciseId?: string): readonly number[] 
     }
     return options;
   }
-  if (exerciseId === "bench_press") {
+  if (exerciseId === "bench_press" || exerciseId === "incline_bench_press") {
     const options: number[] = [];
     for (let w = BENCH_PRESS_MIN_WEIGHT_KG; w <= MAX_WEIGHT_KG; w += 2.5) {
       options.push(Math.round(w * 10) / 10);

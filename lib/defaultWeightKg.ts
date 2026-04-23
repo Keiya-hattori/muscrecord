@@ -7,6 +7,7 @@ import { loadExerciseCatalog } from "@/lib/exerciseCatalog";
  */
 const DEFAULT_KG_BY_EXERCISE: Record<string, number> = {
   bench_press: 70,
+  incline_bench_press: 60,
   incline_dumbbell_press: 26,
   cable_crossover: 15,
   pec_deck: 40,
@@ -28,6 +29,8 @@ const DEFAULT_KG_BY_EXERCISE: Record<string, number> = {
   rear_delt_fly: 10,
   upright_row: 35,
   bicep_curl: 12.5,
+  standing_dumbbell_curl: 12,
+  ez_bar_curl: 25,
   incline_bicep_curl: 11,
   hammer_curl: 15,
   preacher_curl: 12.5,

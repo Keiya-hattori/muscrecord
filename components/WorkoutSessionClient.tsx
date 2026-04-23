@@ -3,11 +3,19 @@
 import Link from "next/link";
 import { useLiveQuery } from "dexie-react-hooks";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
+import clsx from "clsx";
 import { ExercisePicker } from "@/components/ExercisePicker";
 import { AppNav } from "@/components/AppNav";
 import { SessionExercisePanel } from "@/components/SessionExercisePanel";
-import { db, getLastSetForExerciseBefore, updateWorkoutSessionDate } from "@/lib/db";
+import {
+  db,
+  getLastSetForExerciseBefore,
+  updateWorkoutSessionDate,
+  updateWorkoutTrainingContext,
+} from "@/lib/db";
 import { getExerciseById } from "@/lib/exercises";
+import { countsAsMainSet } from "@/lib/setVolume";
+import type { TrainingContext } from "@/lib/types";
 import { workoutSelectedStorageKey } from "@/lib/uiPersist";
 
 type Props = {
@@ -91,10 +99,18 @@ export function WorkoutSessionClient({ workoutId }: Props) {
   const countByExercise = useMemo(() => {
     const m = new Map<string, number>();
     for (const r of setsInSession ?? []) {
+      if (!countsAsMainSet(r)) continue;
       m.set(r.exerciseId, (m.get(r.exerciseId) ?? 0) + 1);
     }
     return m;
   }, [setsInSession]);
+
+  const pickTraining = useCallback(
+    (ctx: TrainingContext | null) => {
+      void updateWorkoutTrainingContext(workoutId, ctx);
+    },
+    [workoutId],
+  );
 
   return (
     <div className="min-h-screen">
@@ -130,6 +146,42 @@ export function WorkoutSessionClient({ workoutId }: Props) {
                 }
                 className="date-input-native mt-2 w-full max-w-xs rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-2 text-base text-zinc-900 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-50"
               />
+              <p className="mt-4 text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                今日のトレ（任意）
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => pickTraining("solo")}
+                  className={clsx(
+                    "rounded-xl px-3 py-1.5 text-sm font-medium",
+                    workout.trainingContext === "solo"
+                      ? "bg-indigo-600 text-white"
+                      : "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200",
+                  )}
+                >
+                  ソロ
+                </button>
+                <button
+                  type="button"
+                  onClick={() => pickTraining("partner")}
+                  className={clsx(
+                    "rounded-xl px-3 py-1.5 text-sm font-medium",
+                    workout.trainingContext === "partner"
+                      ? "bg-indigo-600 text-white"
+                      : "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200",
+                  )}
+                >
+                  合同
+                </button>
+                <button
+                  type="button"
+                  onClick={() => pickTraining(null)}
+                  className="rounded-xl px-3 py-1.5 text-sm text-zinc-500 ring-1 ring-zinc-200 dark:text-zinc-400 dark:ring-zinc-600"
+                >
+                  未設定
+                </button>
+              </div>
             </div>
           )}
         </header>

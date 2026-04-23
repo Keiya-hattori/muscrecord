@@ -6,6 +6,12 @@
     "imagePath": "/exercises/bench_press.svg"
   },
   {
+    "id": "incline_bench_press",
+    "name": "インクラインベンチプレス",
+    "category": "chest",
+    "imagePath": "/exercises/bench_press.svg"
+  },
+  {
     "id": "incline_dumbbell_press",
     "name": "インクラインダンベルプレス",
     "category": "chest",
@@ -127,7 +133,21 @@
   },
   {
     "id": "bicep_curl",
-    "name": "アームカール",
+    "name": "シーテッドダンベルアームカール",
+    "category": "arms",
+    "armFocus": "bicep",
+    "imagePath": "/exercises/bicep_curl.svg"
+  },
+  {
+    "id": "standing_dumbbell_curl",
+    "name": "スタンドダンベルアームカール",
+    "category": "arms",
+    "armFocus": "bicep",
+    "imagePath": "/exercises/bicep_curl.svg"
+  },
+  {
+    "id": "ez_bar_curl",
+    "name": "EZバーアームカール",
     "category": "arms",
     "armFocus": "bicep",
     "imagePath": "/exercises/bicep_curl.svg"

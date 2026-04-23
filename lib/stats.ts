@@ -1,6 +1,9 @@
 import { addDaysToDateKey, todayLocalDateKey } from "@/lib/dateKey";
 import { db, getSetting } from "@/lib/db";
-import { effectiveSetVolumeKg } from "@/lib/effectiveVolume";
+import {
+  countsAsMainSet,
+  effectiveSetVolumeFromRow,
+} from "@/lib/setVolume";
 import type { WorkoutSessionRow, WorkoutSetRow } from "@/lib/types";
 import { parseUserProfileJson } from "@/lib/userProfile";
 
@@ -27,7 +30,10 @@ export function formatDateFullJa(dateKey: string): string {
 export type WorkoutWithVolume = WorkoutSessionRow & {
   sets: WorkoutSetRow[];
   volume: number;
+  /** 全セット行数 */
   setCount: number;
+  /** ウォームアップ/ドロップ除く */
+  mainSetCount: number;
 };
 
 async function loadBodyWeightKg(): Promise<number | null> {
@@ -42,18 +48,19 @@ export async function loadAllWorkoutsWithVolume(): Promise<WorkoutWithVolume[]> 
   for (const w of sessions) {
     const sets = await db.sets.where("workoutId").equals(w.id).toArray();
     const volume = sets.reduce(
-      (a, s) =>
-        a + effectiveSetVolumeKg(s.exerciseId, s.weightKg, s.reps, bodyWeightKg),
+      (a, s) => a + effectiveSetVolumeFromRow(s, bodyWeightKg),
       0,
     );
+    const mainSetCount = sets.filter((s) => countsAsMainSet(s)).length;
     out.push({
       ...w,
       sets,
       volume,
       setCount: sets.length,
+      mainSetCount,
     });
   }
-  return out;
+  return out.filter((w) => w.sets.length > 0);
 }
 
 /** 種目ごとに、その日付のセットとボリューム（同一日に複数セッションがあれば合算） */
@@ -83,19 +90,14 @@ export async function groupHistoryByExercise(): Promise<ExerciseHistoryGroup[]> 
   >();
 
   for (const w of workouts) {
-    const dk = toDateKey(w.startedAt);
+    const dk = w.sessionDate;
     for (const s of w.sets) {
       const inner =
         byEx.get(s.exerciseId) ??
         new Map<string, { setCount: number; volumeKg: number }>();
       const cur = inner.get(dk) ?? { setCount: 0, volumeKg: 0 };
-      cur.setCount += 1;
-      cur.volumeKg += effectiveSetVolumeKg(
-        s.exerciseId,
-        s.weightKg,
-        s.reps,
-        bodyWeightKg,
-      );
+      cur.setCount += countsAsMainSet(s) ? 1 : 0;
+      cur.volumeKg += effectiveSetVolumeFromRow(s, bodyWeightKg);
       inner.set(dk, cur);
       byEx.set(s.exerciseId, inner);
     }
@@ -175,7 +177,7 @@ function volumeAndSessionsInRange(
 export async function computeGlobalAggregates(): Promise<GlobalAggregates> {
   const workouts = await loadAllWorkoutsWithVolume();
   const totalWorkouts = workouts.length;
-  const totalSets = workouts.reduce((a, w) => a + w.setCount, 0);
+  const totalSets = workouts.reduce((a, w) => a + w.mainSetCount, 0);
   const totalVolume = workouts.reduce((a, w) => a + w.volume, 0);
   const ex = new Set<string>();
   for (const w of workouts) {
@@ -278,7 +280,7 @@ export async function dailyVolumeSeries(numDays: number): Promise<
   }
 
   for (const w of workouts) {
-    const key = toDateKey(w.startedAt);
+    const key = w.sessionDate;
     if (byDay.has(key)) {
       byDay.set(key, (byDay.get(key) ?? 0) + w.volume);
     }

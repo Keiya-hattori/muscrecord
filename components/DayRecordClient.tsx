@@ -15,11 +15,13 @@ import {
   db,
   getOrCreateWorkoutForSessionDate,
   getSetting,
+  getWorkoutIdForSessionDate,
   markPendingLlmRowApplied,
   nextOrderForWorkout,
   removeSet,
   setWorkoutPendingLlmMenu,
   updateSet,
+  updateWorkoutTrainingContext,
 } from "@/lib/db";
 import { AppNav } from "@/components/AppNav";
 import { ExerciseCover } from "@/components/ExerciseCover";
@@ -45,13 +47,19 @@ import {
 } from "@/lib/recordBodyTabs";
 import {
   countDistinctExercises,
+  countMainSets,
   maxOtherExerciseVolumeKg,
   maxOtherWorkoutVolumeKg,
   totalVolumeKg,
   volumeByExerciseInSets,
 } from "@/lib/dayRecordAchievements";
+import {
+  INCLINE_BENCH_PRESS_ID,
+  isUnilateralDumbbellExercise,
+  normalizeSetKind,
+} from "@/lib/setVolume";
 import { parseUserProfileJson } from "@/lib/userProfile";
-import type { WorkoutSetRow } from "@/lib/types";
+import type { SetKind, TrainingContext, WorkoutSetRow } from "@/lib/types";
 
 type Props = {
   dateKey: string;
@@ -61,6 +69,10 @@ type DraftRow = {
   id: string;
   weightKg: number;
   reps: number;
+  setKind: SetKind;
+  rir: number | null;
+  weightLeftKg: number | null;
+  weightRightKg: number | null;
 };
 
 type DraftPanel = {
@@ -69,7 +81,17 @@ type DraftPanel = {
 };
 
 function newDraftRow(
-  override?: Partial<Pick<DraftRow, "weightKg" | "reps">> & {
+  override?: Partial<
+    Pick<
+      DraftRow,
+      | "weightKg"
+      | "reps"
+      | "setKind"
+      | "rir"
+      | "weightLeftKg"
+      | "weightRightKg"
+    >
+  > & {
     defaultExerciseId?: string;
   },
 ): DraftRow {
@@ -81,11 +103,52 @@ function newDraftRow(
     id: crypto.randomUUID(),
     weightKg: rest.weightKg ?? baseW,
     reps: rest.reps ?? DEFAULT_REPS_FOR_NEW_SET,
+    setKind: rest.setKind ?? "main",
+    rir: rest.rir ?? null,
+    weightLeftKg: rest.weightLeftKg ?? null,
+    weightRightKg: rest.weightRightKg ?? null,
   };
+}
+
+function toSavedSetBody(
+  exerciseId: string,
+  row: DraftRow,
+): Pick<
+  WorkoutSetRow,
+  "weightKg" | "reps" | "setKind" | "rir" | "weightLeftKg" | "weightRightKg"
+> {
+  const w = snapWeightToStepKg(row.weightKg, exerciseId);
+  const r = Math.min(50, Math.max(0, Math.floor(row.reps)));
+  const base: Pick<
+    WorkoutSetRow,
+    "weightKg" | "reps" | "setKind" | "rir" | "weightLeftKg" | "weightRightKg"
+  > = {
+    weightKg: w,
+    reps: r,
+    setKind: row.setKind,
+    rir: row.rir,
+  };
+  if (isUnilateralDumbbellExercise(exerciseId)) {
+    return {
+      ...base,
+      weightLeftKg:
+        row.weightLeftKg != null
+          ? snapWeightToStepKg(row.weightLeftKg, exerciseId)
+          : null,
+      weightRightKg:
+        row.weightRightKg != null
+          ? snapWeightToStepKg(row.weightRightKg, exerciseId)
+          : null,
+    };
+  }
+  return { ...base, weightLeftKg: null, weightRightKg: null };
 }
 
 export function DayRecordClient({ dateKey }: Props) {
   const [workoutId, setWorkoutId] = useState<string | null>(null);
+  const [trainingContext, setTrainingContext] = useState<TrainingContext | null>(
+    null,
+  );
   const [bodyTab, setBodyTab] = useState<RecordBodyTabId>("chest");
   const [draftPanels, setDraftPanels] = useState<DraftPanel[]>([]);
   const [busy, setBusy] = useState(false);
@@ -95,6 +158,10 @@ export function DayRecordClient({ dateKey }: Props) {
   const [editingExerciseId, setEditingExerciseId] = useState<string | null>(null);
   const [editWeightKg, setEditWeightKg] = useState(0);
   const [editReps, setEditReps] = useState(0);
+  const [editSetKind, setEditSetKind] = useState<SetKind>("main");
+  const [editRir, setEditRir] = useState<number | null>(null);
+  const [editWeightLeft, setEditWeightLeft] = useState<number | null>(null);
+  const [editWeightRight, setEditWeightRight] = useState<number | null>(null);
 
   const inputSectionRef = useRef<HTMLDivElement>(null);
 
@@ -106,13 +173,33 @@ export function DayRecordClient({ dateKey }: Props) {
 
   useEffect(() => {
     let cancelled = false;
-    void getOrCreateWorkoutForSessionDate(dateKey).then((id) => {
+    void getWorkoutIdForSessionDate(dateKey).then((id) => {
       if (!cancelled) setWorkoutId(id);
     });
     return () => {
       cancelled = true;
     };
   }, [dateKey]);
+
+  const ensureWorkoutId = useCallback(async (): Promise<string> => {
+    if (workoutId) return workoutId;
+    const id = await getOrCreateWorkoutForSessionDate(dateKey);
+    setWorkoutId(id);
+    if (trainingContext) {
+      await updateWorkoutTrainingContext(id, trainingContext);
+    }
+    return id;
+  }, [workoutId, dateKey, trainingContext]);
+
+  const pickTraining = useCallback(
+    (ctx: TrainingContext | null) => {
+      setTrainingContext(ctx);
+      if (workoutId) {
+        void updateWorkoutTrainingContext(workoutId, ctx);
+      }
+    },
+    [workoutId],
+  );
 
   const workoutRow = useLiveQuery(
     () => (workoutId ? db.workouts.get(workoutId) : undefined),
@@ -135,6 +222,12 @@ export function DayRecordClient({ dateKey }: Props) {
         : Promise.resolve([] as WorkoutSetRow[]),
     [workoutId],
   );
+
+  useEffect(() => {
+    if (workoutRow?.trainingContext) {
+      setTrainingContext(workoutRow.trainingContext);
+    }
+  }, [workoutRow?.trainingContext]);
 
   const pendingMenu = useMemo(
     () => parsePendingMenuJson(workoutRow?.pendingLlmMenuJson),
@@ -164,7 +257,8 @@ export function DayRecordClient({ dateKey }: Props) {
     const list = sets ?? [];
     if (list.length === 0 || !workoutId) return null;
     const vol = totalVolumeKg(list, bodyWeightKg);
-    const setCount = list.length;
+    const totalSetCount = list.length;
+    const mainSetCount = countMainSets(list);
     const exCount = countDistinctExercises(list);
     const statsReady = Array.isArray(allSetsForStats);
     if (!statsReady) {
@@ -172,7 +266,8 @@ export function DayRecordClient({ dateKey }: Props) {
         vol,
         maxHistoricSession: 0,
         isSessionVolumePR: false,
-        setCount,
+        setCount: mainSetCount,
+        totalSetCount,
         exCount,
         exercisePRs: [] as {
           exerciseId: string;
@@ -217,14 +312,15 @@ export function DayRecordClient({ dateKey }: Props) {
         ? "セッションの総ボリュームが過去最高です。"
         : vol >= maxHistoricSession * 0.85 && maxHistoricSession > 0
           ? "いつもに近い高めのボリューム。安定してます！"
-          : setCount >= 8
-            ? "セット数もばっちり。今日も積み上げました。"
+          : mainSetCount >= 8
+            ? "メインセットもばっちり。今日も積み上げました。"
             : "一歩ずつが強さになります。今日もえらい！";
     return {
       vol,
       maxHistoricSession,
       isSessionVolumePR,
-      setCount,
+      setCount: mainSetCount,
+      totalSetCount,
       exCount,
       exercisePRs,
       encouragement,
@@ -247,26 +343,28 @@ export function DayRecordClient({ dateKey }: Props) {
 
   const confirmTodoRow = useCallback(
     async (row: PendingLlmMenuRow) => {
-      if (!workoutId || row.applied) return;
+      if (row.applied) return;
       setBusy(true);
       setErr(null);
       try {
-        const order = await nextOrderForWorkout(workoutId);
+        const wid = await ensureWorkoutId();
+        const order = await nextOrderForWorkout(wid);
         await addSet({
-          workoutId,
+          workoutId: wid,
           exerciseId: row.exerciseId,
           order,
           weightKg: snapWeightToStepKg(row.weightKg, row.exerciseId),
           reps: Math.min(50, Math.max(0, Math.floor(row.reps))),
+          setKind: "main",
         });
-        await markPendingLlmRowApplied(workoutId, row.id);
+        await markPendingLlmRowApplied(wid, row.id);
       } catch {
         setErr("ToDo からの追加に失敗しました。");
       } finally {
         setBusy(false);
       }
     },
-    [workoutId],
+    [ensureWorkoutId],
   );
 
   const exerciseOrder = useMemo(() => {
@@ -331,6 +429,10 @@ export function DayRecordClient({ dateKey }: Props) {
               ? {
                   weightKg: snapWeightToStepKg(last.weightKg, exerciseId),
                   reps: Math.min(50, Math.max(0, Math.floor(last.reps))),
+                  setKind: last.setKind,
+                  rir: last.rir,
+                  weightLeftKg: last.weightLeftKg,
+                  weightRightKg: last.weightRightKg,
                   defaultExerciseId: exerciseId,
                 }
               : { defaultExerciseId: exerciseId },
@@ -375,7 +477,7 @@ export function DayRecordClient({ dateKey }: Props) {
   }, []);
 
   const confirmAllDraftPanels = useCallback(async () => {
-    if (!workoutId || draftPanels.length < 2) return;
+    if (draftPanels.length < 2) return;
     const snapshots = draftPanels.map((p) => ({
       exerciseId: p.exerciseId,
       draftSets: [...p.draftSets],
@@ -395,15 +497,15 @@ export function DayRecordClient({ dateKey }: Props) {
     setBusy(true);
     setErr(null);
     try {
+      const wid = await ensureWorkoutId();
       for (const snap of snapshots) {
-        let order = await nextOrderForWorkout(workoutId);
+        let order = await nextOrderForWorkout(wid);
         for (const row of snap.draftSets) {
           await addSet({
-            workoutId,
+            workoutId: wid,
             exerciseId: snap.exerciseId,
             order: order++,
-            weightKg: snapWeightToStepKg(row.weightKg, snap.exerciseId),
-            reps: Math.min(50, Math.max(0, Math.floor(row.reps))),
+            ...toSavedSetBody(snap.exerciseId, row),
           });
         }
       }
@@ -413,14 +515,10 @@ export function DayRecordClient({ dateKey }: Props) {
     } finally {
       setBusy(false);
     }
-  }, [workoutId, draftPanels]);
+  }, [draftPanels, ensureWorkoutId]);
 
   const confirmDraftPanel = useCallback(
     async (exerciseId: string, draftSets: DraftRow[]) => {
-      if (!workoutId) {
-        setErr("ワークアウトを読み込み中です。");
-        return;
-      }
       if (draftSets.length === 0) {
         setErr("セットを1行以上入力してください。");
         return;
@@ -434,14 +532,14 @@ export function DayRecordClient({ dateKey }: Props) {
       setBusy(true);
       setErr(null);
       try {
-        let order = await nextOrderForWorkout(workoutId);
+        const wid = await ensureWorkoutId();
+        let order = await nextOrderForWorkout(wid);
         for (const row of draftSets) {
           await addSet({
-            workoutId,
+            workoutId: wid,
             exerciseId,
             order: order++,
-            weightKg: snapWeightToStepKg(row.weightKg, exerciseId),
-            reps: Math.min(50, Math.max(0, Math.floor(row.reps))),
+            ...toSavedSetBody(exerciseId, row),
           });
         }
         setDraftPanels((panels) => panels.filter((p) => p.exerciseId !== exerciseId));
@@ -451,7 +549,7 @@ export function DayRecordClient({ dateKey }: Props) {
         setBusy(false);
       }
     },
-    [workoutId],
+    [ensureWorkoutId],
   );
 
   const startEditSet = useCallback((row: WorkoutSetRow) => {
@@ -459,6 +557,18 @@ export function DayRecordClient({ dateKey }: Props) {
     setEditingExerciseId(row.exerciseId);
     setEditWeightKg(snapWeightToStepKg(row.weightKg, row.exerciseId));
     setEditReps(Math.min(50, Math.max(0, Math.floor(row.reps))));
+    setEditSetKind(normalizeSetKind(row.setKind));
+    setEditRir(row.rir ?? null);
+    setEditWeightLeft(
+      row.weightLeftKg != null
+        ? snapWeightToStepKg(row.weightLeftKg, row.exerciseId)
+        : null,
+    );
+    setEditWeightRight(
+      row.weightRightKg != null
+        ? snapWeightToStepKg(row.weightRightKg, row.exerciseId)
+        : null,
+    );
   }, []);
 
   const cancelEditSet = useCallback(() => {
@@ -467,14 +577,27 @@ export function DayRecordClient({ dateKey }: Props) {
   }, []);
 
   const saveEditSet = useCallback(async () => {
-    if (!editingSetId) return;
+    if (!editingSetId || !editingExerciseId) return;
     setBusy(true);
     setErr(null);
     try {
-      await updateSet(editingSetId, {
-        weightKg: snapWeightToStepKg(editWeightKg, editingExerciseId ?? undefined),
+      const exId = editingExerciseId;
+      const patch: Parameters<typeof updateSet>[1] = {
+        weightKg: snapWeightToStepKg(editWeightKg, exId),
         reps: Math.min(50, Math.max(0, Math.floor(editReps))),
-      });
+        setKind: editSetKind,
+        rir: editRir,
+      };
+      if (isUnilateralDumbbellExercise(exId)) {
+        patch.weightLeftKg =
+          editWeightLeft != null ? snapWeightToStepKg(editWeightLeft, exId) : null;
+        patch.weightRightKg =
+          editWeightRight != null ? snapWeightToStepKg(editWeightRight, exId) : null;
+      } else {
+        patch.weightLeftKg = null;
+        patch.weightRightKg = null;
+      }
+      await updateSet(editingSetId, patch);
       setEditingSetId(null);
       setEditingExerciseId(null);
     } catch {
@@ -482,7 +605,16 @@ export function DayRecordClient({ dateKey }: Props) {
     } finally {
       setBusy(false);
     }
-  }, [editingSetId, editingExerciseId, editWeightKg, editReps]);
+  }, [
+    editingSetId,
+    editingExerciseId,
+    editWeightKg,
+    editReps,
+    editSetKind,
+    editRir,
+    editWeightLeft,
+    editWeightRight,
+  ]);
 
   const selectWheelClass =
     "h-14 w-full appearance-none rounded-xl border border-zinc-200 bg-white px-3 text-center text-base font-semibold tabular-nums shadow-sm dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-50";
@@ -500,6 +632,45 @@ export function DayRecordClient({ dateKey }: Props) {
             ← ホーム
           </Link>
         </header>
+
+        <section className="mt-4 rounded-2xl border border-zinc-200 bg-zinc-50/80 p-3 dark:border-zinc-700 dark:bg-zinc-900/50">
+          <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+            今日のトレ（任意）
+          </p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => pickTraining("solo")}
+              className={clsx(
+                "rounded-xl px-3 py-1.5 text-sm font-medium transition",
+                trainingContext === "solo"
+                  ? "bg-indigo-600 text-white"
+                  : "bg-white text-zinc-700 ring-1 ring-zinc-200 dark:bg-zinc-800 dark:text-zinc-200 dark:ring-zinc-600",
+              )}
+            >
+              ソロ
+            </button>
+            <button
+              type="button"
+              onClick={() => pickTraining("partner")}
+              className={clsx(
+                "rounded-xl px-3 py-1.5 text-sm font-medium transition",
+                trainingContext === "partner"
+                  ? "bg-indigo-600 text-white"
+                  : "bg-white text-zinc-700 ring-1 ring-zinc-200 dark:bg-zinc-800 dark:text-zinc-200 dark:ring-zinc-600",
+              )}
+            >
+              合同
+            </button>
+            <button
+              type="button"
+              onClick={() => pickTraining(null)}
+              className="rounded-xl px-3 py-1.5 text-sm text-zinc-500 ring-1 ring-zinc-200 dark:text-zinc-400 dark:ring-zinc-600"
+            >
+              未設定
+            </button>
+          </div>
+        </section>
 
         {/* LLM 提案 ToDo（部位別・チェック後も行は残す） */}
         {pendingMenu && pendingMenu.rows.length > 0 && (
@@ -780,6 +951,115 @@ export function DayRecordClient({ dateKey }: Props) {
                               </select>
                             </div>
                           </div>
+                          {exId === INCLINE_BENCH_PRESS_ID && (
+                            <p className="mt-2 text-center text-[10px] text-amber-800/90 dark:text-amber-200/90">
+                              1サイド分の重さ。ボリュームは左右合算で計算します。
+                            </p>
+                          )}
+                          <div className="mt-3 flex flex-wrap items-center gap-2">
+                            <span className="text-[10px] font-medium text-zinc-500">
+                              種別
+                            </span>
+                            {(
+                              [
+                                { k: "main" as const, label: "メイン" },
+                                { k: "warmup" as const, label: "W" },
+                                { k: "dropset" as const, label: "D" },
+                              ] as const
+                            ).map(({ k, label }) => (
+                              <button
+                                key={k}
+                                type="button"
+                                onClick={() => updateDraft(exId, row.id, { setKind: k })}
+                                className={clsx(
+                                  "rounded-lg px-2.5 py-1 text-xs font-semibold",
+                                  row.setKind === k
+                                    ? "bg-zinc-800 text-white dark:bg-zinc-200 dark:text-zinc-900"
+                                    : "bg-zinc-200/80 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300",
+                                )}
+                              >
+                                {label}
+                              </button>
+                            ))}
+                            <label className="ml-1 flex items-center gap-1 text-xs text-zinc-500">
+                              RIR
+                              <select
+                                value={row.rir == null ? "" : String(row.rir)}
+                                onChange={(e) => {
+                                  const v = e.target.value;
+                                  updateDraft(exId, row.id, {
+                                    rir: v === "" ? null : Number(v),
+                                  });
+                                }}
+                                className="rounded border border-zinc-200 bg-white px-1 py-0.5 text-zinc-800 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100"
+                              >
+                                <option value="">—</option>
+                                {Array.from({ length: 11 }, (_, i) => i).map((r) => (
+                                  <option key={r} value={r}>
+                                    {r}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+                          </div>
+                          {isUnilateralDumbbellExercise(exId) && (
+                            <div className="mt-2 grid grid-cols-2 gap-3">
+                              <div>
+                                <label className="mb-1 block text-center text-xs text-zinc-500">
+                                  左 (kg)
+                                </label>
+                                <select
+                                  className={selectWheelClass}
+                                  value={
+                                    row.weightLeftKg != null
+                                      ? snapWeightToStepKg(
+                                          row.weightLeftKg,
+                                          exId,
+                                        )
+                                    : wVal
+                                  }
+                                  onChange={(e) =>
+                                    updateDraft(exId, row.id, {
+                                      weightLeftKg: Number(e.target.value),
+                                    })
+                                  }
+                                >
+                                  {weightOptions.map((w) => (
+                                    <option key={w} value={w}>
+                                      {w % 1 === 0 ? w : w.toFixed(1)} kg
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                              <div>
+                                <label className="mb-1 block text-center text-xs text-zinc-500">
+                                  右 (kg)
+                                </label>
+                                <select
+                                  className={selectWheelClass}
+                                  value={
+                                    row.weightRightKg != null
+                                      ? snapWeightToStepKg(
+                                          row.weightRightKg,
+                                          exId,
+                                        )
+                                    : wVal
+                                  }
+                                  onChange={(e) =>
+                                    updateDraft(exId, row.id, {
+                                      weightRightKg: Number(e.target.value),
+                                    })
+                                  }
+                                >
+                                  {weightOptions.map((w) => (
+                                    <option key={w} value={w}>
+                                      {w % 1 === 0 ? w : w.toFixed(1)} kg
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       );
                     })}
@@ -795,7 +1075,7 @@ export function DayRecordClient({ dateKey }: Props) {
 
                   <button
                     type="button"
-                    disabled={busy || !workoutId}
+                    disabled={busy}
                     onClick={() => void confirmDraftPanel(exId, draftSets)}
                     className="mt-4 w-full rounded-2xl bg-blue-600 px-6 py-4 text-lg font-semibold text-white shadow hover:bg-blue-500 disabled:opacity-50"
                   >
@@ -821,7 +1101,7 @@ export function DayRecordClient({ dateKey }: Props) {
           {draftPanels.length >= 2 && (
             <button
               type="button"
-              disabled={busy || !workoutId}
+              disabled={busy}
               onClick={() => void confirmAllDraftPanels()}
               className="mt-6 w-full rounded-2xl border-2 border-blue-600 bg-white py-4 text-lg font-semibold text-blue-600 shadow-sm transition hover:bg-blue-50 disabled:opacity-50 dark:border-blue-500 dark:bg-zinc-900 dark:text-blue-400 dark:hover:bg-blue-950/40"
             >
@@ -874,7 +1154,13 @@ export function DayRecordClient({ dateKey }: Props) {
                     </p>
                     <div className="mt-4 flex flex-wrap gap-2 text-sm">
                       <span className="rounded-full bg-white/20 px-3 py-1 font-semibold backdrop-blur-sm">
-                        セット {sessionHighlights.setCount}
+                        メインセット {sessionHighlights.setCount}
+                        {sessionHighlights.totalSetCount !==
+                          sessionHighlights.setCount && (
+                          <span className="ml-1 text-white/80">
+                            （全 {sessionHighlights.totalSetCount}）
+                          </span>
+                        )}
                       </span>
                       <span className="rounded-full bg-white/20 px-3 py-1 font-semibold backdrop-blur-sm">
                         種目 {sessionHighlights.exCount}
@@ -946,40 +1232,164 @@ export function DayRecordClient({ dateKey }: Props) {
                                   {idx + 1}
                                 </span>
                                 {editingSetId === rrow.id ? (
-                                  <div className="grid w-full max-w-sm grid-cols-2 gap-2">
-                                    <select
-                                      className={selectWheelClass}
-                                      value={snapWeightToStepKg(editWeightKg, exId)}
-                                      onChange={(e) =>
-                                        setEditWeightKg(Number(e.target.value))
-                                      }
-                                    >
-                                      {getWeightSelectOptionsForExercise(exId).map((w) => (
-                                        <option key={w} value={w}>
-                                          {w % 1 === 0 ? w : w.toFixed(1)} kg
-                                        </option>
+                                  <div className="flex w-full min-w-0 max-w-md flex-col gap-2">
+                                    <div className="grid grid-cols-2 gap-2">
+                                      <select
+                                        className={selectWheelClass}
+                                        value={snapWeightToStepKg(
+                                          editWeightKg,
+                                          exId,
+                                        )}
+                                        onChange={(e) =>
+                                          setEditWeightKg(Number(e.target.value))
+                                        }
+                                      >
+                                        {getWeightSelectOptionsForExercise(
+                                          exId,
+                                        ).map((w) => (
+                                          <option key={w} value={w}>
+                                            {w % 1 === 0 ? w : w.toFixed(1)} kg
+                                          </option>
+                                        ))}
+                                      </select>
+                                      <select
+                                        className={selectWheelClass}
+                                        value={Math.min(
+                                          50,
+                                          Math.max(0, Math.floor(editReps)),
+                                        )}
+                                        onChange={(e) =>
+                                          setEditReps(Number(e.target.value))
+                                        }
+                                      >
+                                        {REP_SELECT_OPTIONS.map((r) => (
+                                          <option key={r} value={r}>
+                                            {r} 回
+                                          </option>
+                                        ))}
+                                      </select>
+                                    </div>
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      {(
+                                        [
+                                          { k: "main" as const, label: "メイン" },
+                                          { k: "warmup" as const, label: "W" },
+                                          { k: "dropset" as const, label: "D" },
+                                        ] as const
+                                      ).map(({ k, label }) => (
+                                        <button
+                                          key={k}
+                                          type="button"
+                                          onClick={() => setEditSetKind(k)}
+                                          className={clsx(
+                                            "rounded-lg px-2 py-0.5 text-xs font-semibold",
+                                            editSetKind === k
+                                              ? "bg-zinc-800 text-white dark:bg-zinc-200 dark:text-zinc-900"
+                                              : "bg-zinc-200/80 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300",
+                                          )}
+                                        >
+                                          {label}
+                                        </button>
                                       ))}
-                                    </select>
-                                    <select
-                                      className={selectWheelClass}
-                                      value={Math.min(
-                                        50,
-                                        Math.max(0, Math.floor(editReps)),
-                                      )}
-                                      onChange={(e) =>
-                                        setEditReps(Number(e.target.value))
-                                      }
-                                    >
-                                      {REP_SELECT_OPTIONS.map((r) => (
-                                        <option key={r} value={r}>
-                                          {r} 回
-                                        </option>
-                                      ))}
-                                    </select>
+                                      <label className="flex items-center gap-1 text-xs text-zinc-500">
+                                        RIR
+                                        <select
+                                          value={editRir == null ? "" : String(editRir)}
+                                          onChange={(e) => {
+                                            const v = e.target.value;
+                                            setEditRir(
+                                              v === "" ? null : Number(v),
+                                            );
+                                          }}
+                                          className="rounded border border-zinc-200 bg-white px-1 text-zinc-800 dark:border-zinc-600 dark:bg-zinc-800"
+                                        >
+                                          <option value="">—</option>
+                                          {Array.from(
+                                            { length: 11 },
+                                            (_, i) => i,
+                                          ).map((r) => (
+                                            <option key={r} value={r}>
+                                              {r}
+                                            </option>
+                                          ))}
+                                        </select>
+                                      </label>
+                                    </div>
+                                    {isUnilateralDumbbellExercise(exId) && (
+                                      <div className="grid grid-cols-2 gap-2">
+                                        <select
+                                          className={selectWheelClass}
+                                          value={snapWeightToStepKg(
+                                            editWeightLeft ?? editWeightKg,
+                                            exId,
+                                          )}
+                                          onChange={(e) =>
+                                            setEditWeightLeft(Number(e.target.value))
+                                          }
+                                        >
+                                          {getWeightSelectOptionsForExercise(
+                                            exId,
+                                          ).map((w) => (
+                                            <option key={w} value={w}>
+                                              左 {w % 1 === 0 ? w : w.toFixed(1)} kg
+                                            </option>
+                                          ))}
+                                        </select>
+                                        <select
+                                          className={selectWheelClass}
+                                          value={snapWeightToStepKg(
+                                            editWeightRight ?? editWeightKg,
+                                            exId,
+                                          )}
+                                          onChange={(e) =>
+                                            setEditWeightRight(Number(e.target.value))
+                                          }
+                                        >
+                                          {getWeightSelectOptionsForExercise(
+                                            exId,
+                                          ).map((w) => (
+                                            <option key={w} value={w}>
+                                              右 {w % 1 === 0 ? w : w.toFixed(1)} kg
+                                            </option>
+                                          ))}
+                                        </select>
+                                      </div>
+                                    )}
                                   </div>
                                 ) : (
-                                  <span className="font-mono text-sm tabular-nums text-zinc-800 dark:text-zinc-200">
-                                    {rrow.weightKg} kg × {rrow.reps} 回
+                                  <span className="flex flex-wrap items-center gap-2 font-mono text-sm tabular-nums text-zinc-800 dark:text-zinc-200">
+                                    {normalizeSetKind(rrow.setKind) !==
+                                      "main" && (
+                                      <span className="rounded bg-amber-100 px-1 text-[10px] text-amber-900 dark:bg-amber-900/50 dark:text-amber-100">
+                                        {normalizeSetKind(rrow.setKind) ===
+                                        "warmup"
+                                          ? "W"
+                                          : "D"}
+                                      </span>
+                                    )}
+                                    {isUnilateralDumbbellExercise(exId) &&
+                                    (rrow.weightLeftKg != null ||
+                                      rrow.weightRightKg != null) ? (
+                                      <>
+                                        L {rrow.weightLeftKg ?? "—"} / R{" "}
+                                        {rrow.weightRightKg ?? "—"} ×{" "}
+                                        {rrow.reps} 回
+                                      </>
+                                    ) : (
+                                      <>
+                                        {rrow.weightKg} kg × {rrow.reps} 回
+                                        {exId === INCLINE_BENCH_PRESS_ID && (
+                                          <span className="text-[10px] text-zinc-500">
+                                            （1サイド表記・換算2倍）
+                                          </span>
+                                        )}
+                                      </>
+                                    )}
+                                    {rrow.rir != null && (
+                                      <span className="text-xs text-zinc-500">
+                                        RIR{rrow.rir}
+                                      </span>
+                                    )}
                                   </span>
                                 )}
                               </div>

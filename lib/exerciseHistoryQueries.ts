@@ -1,7 +1,5 @@
-import {
-  effectiveSetVolumeKg,
-  PULL_UP_EXERCISE_ID,
-} from "@/lib/effectiveVolume";
+import { PULL_UP_EXERCISE_ID } from "@/lib/effectiveVolume";
+import { countsAsMainSet, effectiveSetVolumeFromRow } from "@/lib/setVolume";
 import type { WorkoutSetRow } from "@/lib/types";
 import { loadAllWorkoutsWithVolume, type WorkoutWithVolume } from "@/lib/stats";
 
@@ -52,12 +50,7 @@ function sortSetsToRows(
   return sorted.map(({ s }) => ({
     weightKg: s.weightKg,
     reps: s.reps,
-    volume: effectiveSetVolumeKg(
-      exerciseId,
-      s.weightKg,
-      s.reps,
-      bodyWeightKg,
-    ),
+    volume: effectiveSetVolumeFromRow(s, bodyWeightKg),
     order: s.order,
   }));
 }
@@ -84,7 +77,10 @@ export function computeBestDayForExercise(
     let bestDate: string | null = null;
     let maxReps = -1;
     for (const [dk, arr] of byDate) {
-      const totalReps = arr.reduce((sum, { s }) => sum + s.reps, 0);
+      const totalReps = arr.reduce(
+        (sum, { s }) => sum + (countsAsMainSet(s) ? s.reps : 0),
+        0,
+      );
       if (
         totalReps > maxReps ||
         (totalReps === maxReps && bestDate !== null && dk > bestDate)
@@ -96,7 +92,9 @@ export function computeBestDayForExercise(
     if (bestDate === null || maxReps < 0) return null;
     const arr = byDate.get(bestDate)!;
     const sets = sortSetsToRows(arr, exerciseId, bodyWeightKg);
-    const totalReps = sets.reduce((a, r) => a + r.reps, 0);
+    const totalReps = arr
+      .filter(({ s }) => countsAsMainSet(s))
+      .reduce((a, { s }) => a + s.reps, 0);
     return {
       kind: "pullup",
       dateKey: bestDate,
@@ -109,14 +107,7 @@ export function computeBestDayForExercise(
   let maxVol = -1;
   for (const [dk, arr] of byDate) {
     const totalVol = arr.reduce(
-      (sum, { s }) =>
-        sum +
-        effectiveSetVolumeKg(
-          exerciseId,
-          s.weightKg,
-          s.reps,
-          bodyWeightKg,
-        ),
+      (sum, { s }) => sum + effectiveSetVolumeFromRow(s, bodyWeightKg),
       0,
     );
     if (
@@ -150,13 +141,8 @@ function aggregateDaysForExercise(
       if (s.exerciseId !== exerciseId) continue;
       const dk = w.sessionDate;
       const cur = byDate.get(dk) ?? { volumeKg: 0, setCount: 0 };
-      cur.volumeKg += effectiveSetVolumeKg(
-        exerciseId,
-        s.weightKg,
-        s.reps,
-        bodyWeightKg,
-      );
-      cur.setCount += 1;
+      cur.volumeKg += effectiveSetVolumeFromRow(s, bodyWeightKg);
+      if (countsAsMainSet(s)) cur.setCount += 1;
       byDate.set(dk, cur);
     }
   }

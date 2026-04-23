@@ -54,7 +54,10 @@ export function ProgressClient() {
           <>
             <section className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-3">
               <StatCard label="累計セッション" value={String(agg.totalWorkouts)} />
-              <StatCard label="累計セット" value={String(agg.totalSets)} />
+              <StatCard
+                label="累計メインセット"
+                value={String(agg.totalSets)}
+              />
               <StatCard
                 label="累計ボリューム"
                 value={`${Math.round(agg.totalVolume).toLocaleString()} kg`}

@@ -1,5 +1,5 @@
 import { getSetting } from "@/lib/db";
-import { effectiveSetVolumeKg } from "@/lib/effectiveVolume";
+import { effectiveSetVolumeFromRow } from "@/lib/setVolume";
 import { loadAllWorkoutsWithVolume, toDateKey } from "@/lib/stats";
 import { parseUserProfileJson } from "@/lib/userProfile";
 import {
@@ -122,12 +122,7 @@ export async function loadVolumeChartSeries(
     for (const s of w.sets) {
       const sk = splitKeyForExercise(s.exerciseId, mode);
       if (!sk) continue;
-      const v = effectiveSetVolumeKg(
-        s.exerciseId,
-        s.weightKg,
-        s.reps,
-        bodyW,
-      );
+      const v = effectiveSetVolumeFromRow(s, bodyW);
       row[sk] = (row[sk] ?? 0) + v;
     }
   };

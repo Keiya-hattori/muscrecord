@@ -16,6 +16,9 @@ export type ExerciseMaster = {
   armFocus?: "bicep" | "tricep";
 };
 
+/** ソロ = 1人、合同 = 誰かと一緒 */
+export type TrainingContext = "solo" | "partner";
+
 export type WorkoutSessionRow = {
   id: string;
   /** セッション作成時刻（並び・「前回」参照に使用） */
@@ -28,7 +31,11 @@ export type WorkoutSessionRow = {
    * チェックでセット記録に移すまで本テーブルには入れない。
    */
   pendingLlmMenuJson?: string;
+  /** この日のトレがソロか合同か（未設定可） */
+  trainingContext?: TrainingContext | null;
 };
+
+export type SetKind = "main" | "warmup" | "dropset";
 
 export type WorkoutSetRow = {
   /** Dexie auto-increment は使わず UUID で安定参照 */
@@ -39,4 +46,11 @@ export type WorkoutSetRow = {
   order: number;
   weightKg: number;
   reps: number;
+  /** 未設定はメイン扱い（従来データ互換） */
+  setKind?: SetKind;
+  /** Reps in Reserve（未入力可） */
+  rir?: number | null;
+  /** 片手ずつ記録（ダンベル等）。どちらか一方のみなら2倍扱いは UI 任せ。 */
+  weightLeftKg?: number | null;
+  weightRightKg?: number | null;
 };

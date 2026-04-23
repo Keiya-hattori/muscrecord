@@ -1,16 +1,24 @@
 import type { WorkoutSetRow } from "@/lib/types";
-import { effectiveSetVolumeKg } from "@/lib/effectiveVolume";
+import {
+  countsAsMainSet,
+  effectiveSetVolumeFromRow,
+} from "@/lib/setVolume";
 
-/** 総ボリューム（kg）＝ Σ(重量×回数） */
+function vol( s: WorkoutSetRow, bodyWeightKg?: number | null) {
+  return effectiveSetVolumeFromRow(s, bodyWeightKg);
+}
+
+/** 総ボリューム（kg）＝ 換算（懸垂・片手別・IBP等を含む） */
 export function totalVolumeKg(
   sets: WorkoutSetRow[],
   bodyWeightKg?: number | null,
 ): number {
-  return sets.reduce(
-    (a, s) =>
-      a + effectiveSetVolumeKg(s.exerciseId, s.weightKg, s.reps, bodyWeightKg),
-    0,
-  );
+  return sets.reduce((a, s) => a + vol(s, bodyWeightKg), 0);
+}
+
+/** メインセット数（称号・日ベストのセット数用。ウォームアップ/ドロップ除く） */
+export function countMainSets(sets: WorkoutSetRow[]): number {
+  return sets.filter(countsAsMainSet).length;
 }
 
 export function volumeByWorkoutId(
@@ -19,12 +27,7 @@ export function volumeByWorkoutId(
 ): Map<string, number> {
   const m = new Map<string, number>();
   for (const s of sets) {
-    const v = effectiveSetVolumeKg(
-      s.exerciseId,
-      s.weightKg,
-      s.reps,
-      bodyWeightKg,
-    );
+    const v = vol(s, bodyWeightKg);
     m.set(s.workoutId, (m.get(s.workoutId) ?? 0) + v);
   }
   return m;
@@ -52,12 +55,7 @@ export function volumeByExerciseInSets(
 ): Map<string, number> {
   const m = new Map<string, number>();
   for (const s of sets) {
-    const v = effectiveSetVolumeKg(
-      s.exerciseId,
-      s.weightKg,
-      s.reps,
-      bodyWeightKg,
-    );
+    const v = vol(s, bodyWeightKg);
     m.set(s.exerciseId, (m.get(s.exerciseId) ?? 0) + v);
   }
   return m;
@@ -75,12 +73,7 @@ export function maxOtherExerciseVolumeKg(
   for (const s of allSets) {
     if (s.exerciseId !== exerciseId) continue;
     if (s.workoutId === excludeWorkoutId) continue;
-    const add = effectiveSetVolumeKg(
-      s.exerciseId,
-      s.weightKg,
-      s.reps,
-      bodyWeightKg,
-    );
+    const add = vol(s, bodyWeightKg);
     byWorkout.set(
       s.workoutId,
       (byWorkout.get(s.workoutId) ?? 0) + add,

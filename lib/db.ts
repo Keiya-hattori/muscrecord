@@ -47,6 +47,20 @@ class MuscleDB extends Dexie {
           }
         }
       });
+    /** セット0件のゴーストワークアウトを整理 */
+    this.version(4)
+      .stores({
+        workouts: "id, startedAt, sessionDate",
+        sets: "id, workoutId, exerciseId",
+      })
+      .upgrade(async (tx) => {
+        const tw = tx.table("workouts");
+        const allW = (await tw.toArray()) as WorkoutSessionRow[];
+        for (const w of allW) {
+          const n = await tx.table("sets").where("workoutId").equals(w.id).count();
+          if (n === 0) await tw.delete(w.id);
+        }
+      });
   }
 }
 
@@ -82,23 +96,46 @@ export async function createWorkout(
 }
 
 /**
+ * 同一 sessionDate のワークアウト（既存のみ。なければ null）
+ * 日付ページを覗くだけでセッションを増やさないため。
+ */
+export async function getWorkoutIdForSessionDate(
+  sessionDate: string,
+): Promise<string | null> {
+  const rows = await db.workouts.where("sessionDate").equals(sessionDate).toArray();
+  if (rows.length === 0) return null;
+  rows.sort((a, b) => b.startedAt - a.startedAt);
+  return rows[0].id;
+}
+
+/**
  * 同一 sessionDate のワークアウトは1つにまとめる（既存があればそれを返す）
  */
 export async function getOrCreateWorkoutForSessionDate(
   sessionDate: string,
 ): Promise<string> {
-  const rows = await db.workouts.where("sessionDate").equals(sessionDate).toArray();
-  if (rows.length > 0) {
-    rows.sort((a, b) => b.startedAt - a.startedAt);
-    return rows[0].id;
-  }
+  const existing = await getWorkoutIdForSessionDate(sessionDate);
+  if (existing) return existing;
   return createWorkout(undefined, sessionDate);
 }
 
-/** 記録がある日付を新しい順（YYYY-MM-DD 文字列ソートで可） */
+export async function updateWorkoutTrainingContext(
+  workoutId: string,
+  trainingContext: WorkoutSessionRow["trainingContext"],
+): Promise<void> {
+  await db.workouts.update(workoutId, { trainingContext: trainingContext ?? null });
+}
+
+/** 記録がある日付を新しい順（セット1件以上の日のみ） */
 export async function listDistinctSessionDatesDescending(): Promise<string[]> {
+  const allSets = await db.sets.toArray();
+  const widWithSets = new Set(allSets.map((s) => s.workoutId));
   const all = await db.workouts.toArray();
-  const dates = [...new Set(all.map((w) => w.sessionDate))];
+  const dates = [
+    ...new Set(
+      all.filter((w) => widWithSets.has(w.id)).map((w) => w.sessionDate),
+    ),
+  ];
   dates.sort((a, b) => (a < b ? 1 : a > b ? -1 : 0));
   return dates;
 }
@@ -146,7 +183,18 @@ export async function addSet(
 
 export async function updateSet(
   id: string,
-  patch: Partial<Pick<WorkoutSetRow, "weightKg" | "reps" | "order">>,
+  patch: Partial<
+    Pick<
+      WorkoutSetRow,
+      | "weightKg"
+      | "reps"
+      | "order"
+      | "setKind"
+      | "rir"
+      | "weightLeftKg"
+      | "weightRightKg"
+    >
+  >,
 ): Promise<void> {
   await db.sets.update(id, patch);
 }
