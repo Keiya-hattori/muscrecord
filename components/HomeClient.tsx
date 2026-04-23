@@ -2,7 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { AppNav } from "@/components/AppNav";
-import { Big3RecordsWidget } from "@/components/Big3RecordsWidget";
+import {
+  Big3RecordsWidget,
+  WeeklyMainSetCountsWidget,
+} from "@/components/Big3RecordsWidget";
 import { todayLocalDateKey } from "@/lib/dateKey";
 
 export function HomeClient() {
@@ -59,6 +62,7 @@ export function HomeClient() {
         </button>
 
         <Big3RecordsWidget />
+        <WeeklyMainSetCountsWidget />
       </div>
     </>
   );

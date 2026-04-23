@@ -3,7 +3,11 @@
 import { useLiveQuery } from "dexie-react-hooks";
 import { useEffect, useState } from "react";
 import { db } from "@/lib/db";
-import { getBig3MaxKg } from "@/lib/stats";
+import {
+  getBig3MaxKg,
+  getWeeklyMajorBodyPartMainSetCounts,
+  type MajorBodyPartSetCounts,
+} from "@/lib/stats";
 
 function formatKg(n: number): string {
   if (n <= 0) return "—";
@@ -72,6 +76,32 @@ export function Big3RecordsWidget() {
             記録を付けると、ここに表示されます
           </p>
         )}
+
+      </div>
+    </section>
+  );
+}
+
+export function WeeklyMainSetCountsWidget() {
+  const workoutCount = useLiveQuery(() => db.workouts.count(), []);
+  const setCount = useLiveQuery(() => db.sets.count(), []);
+  const [weeklySets, setWeeklySets] = useState<MajorBodyPartSetCounts | null>(null);
+
+  useEffect(() => {
+    void getWeeklyMajorBodyPartMainSetCounts().then(setWeeklySets);
+  }, [workoutCount, setCount]);
+
+  return (
+    <section className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+      <p className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">
+        今週のメインセット数
+      </p>
+      <div className="mt-2 grid grid-cols-2 gap-2 text-xs sm:grid-cols-5">
+        <BodyPartSetChipWhite label="胸" count={weeklySets?.chest ?? 0} />
+        <BodyPartSetChipWhite label="背中" count={weeklySets?.back ?? 0} />
+        <BodyPartSetChipWhite label="脚" count={weeklySets?.legs ?? 0} />
+        <BodyPartSetChipWhite label="腕" count={weeklySets?.arms ?? 0} />
+        <BodyPartSetChipWhite label="肩" count={weeklySets?.shoulders ?? 0} />
       </div>
     </section>
   );
@@ -102,6 +132,17 @@ function Big3Card({
         ) : (
           <span className="text-zinc-500">—</span>
         )}
+      </p>
+    </div>
+  );
+}
+
+function BodyPartSetChipWhite({ label, count }: { label: string; count: number }) {
+  return (
+    <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-2 py-1.5 text-center dark:border-zinc-700 dark:bg-zinc-800/60">
+      <p className="text-[10px] text-zinc-500 dark:text-zinc-400">{label}</p>
+      <p className="font-mono text-sm font-bold tabular-nums text-zinc-900 dark:text-zinc-100">
+        {count} セット
       </p>
     </div>
   );

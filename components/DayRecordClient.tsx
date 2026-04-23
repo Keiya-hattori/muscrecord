@@ -59,6 +59,8 @@ import {
 import {
   INCLINE_BENCH_PRESS_ID,
   INCLINE_DUMBBELL_PRESS_ID,
+  countsAsMainSet,
+  effectiveSetVolumeFromRow,
   isUnilateralDumbbellExercise,
   normalizeSetKind,
 } from "@/lib/setVolume";
@@ -422,6 +424,34 @@ export function DayRecordClient({ dateKey }: Props) {
     }
     return m;
   }, [sets]);
+
+  const bestMainSetByExercise = useMemo(() => {
+    const m = new Map<
+      string,
+      {
+        weightKg: number;
+        reps: number;
+        volume: number;
+      }
+    >();
+    for (const s of allSetsForStats ?? []) {
+      if (!countsAsMainSet(s)) continue;
+      const volume = effectiveSetVolumeFromRow(s, bodyWeightKg);
+      const prev = m.get(s.exerciseId);
+      if (
+        !prev ||
+        volume > prev.volume ||
+        (volume === prev.volume && s.reps > prev.reps)
+      ) {
+        m.set(s.exerciseId, {
+          weightKg: s.weightKg,
+          reps: s.reps,
+          volume,
+        });
+      }
+    }
+    return m;
+  }, [allSetsForStats, bodyWeightKg]);
 
   const updateDraftInPanel = useCallback(
     (
@@ -919,6 +949,7 @@ export function DayRecordClient({ dateKey }: Props) {
               const selectedExercise = getExerciseById(panel.exerciseId);
               const { draftSets } = panel;
               const exId = panel.exerciseId;
+              const bestMainSet = bestMainSetByExercise.get(exId);
               return (
                 <div
                   key={exId}
@@ -926,9 +957,22 @@ export function DayRecordClient({ dateKey }: Props) {
                   className="rounded-2xl border border-blue-200 bg-white p-4 dark:border-blue-900/40 dark:bg-zinc-900"
                 >
                   <div className="mb-4 flex flex-wrap items-start justify-between gap-2">
-                    <p className="text-base font-bold text-zinc-900 dark:text-zinc-50">
-                      {selectedExercise?.name ?? panel.exerciseId}
-                    </p>
+                    <div>
+                      <p className="text-base font-bold text-zinc-900 dark:text-zinc-50">
+                        {selectedExercise?.name ?? panel.exerciseId}
+                      </p>
+                      {bestMainSet && (
+                        <p className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
+                          過去最大メイン:{" "}
+                          <span className="font-mono tabular-nums">
+                            {bestMainSet.weightKg} kg × {bestMainSet.reps} 回
+                          </span>{" "}
+                          （
+                          {Math.round(bestMainSet.volume).toLocaleString("ja-JP")}
+                          kg）
+                        </p>
+                      )}
+                    </div>
                     <button
                       type="button"
                       aria-label="この種目の入力を閉じる"

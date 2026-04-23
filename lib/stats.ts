@@ -1,9 +1,11 @@
 import { addDaysToDateKey, todayLocalDateKey } from "@/lib/dateKey";
 import { db, getSetting } from "@/lib/db";
+import { getExerciseById } from "@/lib/exercises";
 import {
   countsAsMainSet,
   effectiveSetVolumeFromRow,
 } from "@/lib/setVolume";
+import type { ExerciseCategory } from "@/lib/types";
 import type { WorkoutSessionRow, WorkoutSetRow } from "@/lib/types";
 import { parseUserProfileJson } from "@/lib/userProfile";
 
@@ -318,6 +320,60 @@ export async function getBig3MaxKg(): Promise<{
     squat: maxSetWeightForExercise(workouts, BIG3_SQUAT_ID),
     dead: maxSetWeightForExercise(workouts, BIG3_DEADLIFT_ID),
   };
+}
+
+export type MajorBodyPartSetCounts = Record<
+  "chest" | "back" | "legs" | "arms" | "shoulders",
+  number
+>;
+
+/** ホーム用: 今週（日曜始まり）の部位別メインセット数 */
+export async function getWeeklyMajorBodyPartMainSetCounts(): Promise<MajorBodyPartSetCounts> {
+  const out: MajorBodyPartSetCounts = {
+    chest: 0,
+    back: 0,
+    legs: 0,
+    arms: 0,
+    shoulders: 0,
+  };
+  const include = new Set<ExerciseCategory>([
+    "chest",
+    "back",
+    "legs",
+    "arms",
+    "shoulders",
+  ]);
+  const today = new Date();
+  const weekStart = new Date(today);
+  weekStart.setDate(today.getDate() - today.getDay());
+  weekStart.setHours(0, 0, 0, 0);
+  const fromKey = toDateKey(weekStart.getTime());
+  const toKey = todayLocalDateKey();
+  const workouts = await db.workouts
+    .where("sessionDate")
+    .between(fromKey, toKey, true, true)
+    .toArray();
+  if (workouts.length === 0) return out;
+  const workoutIds = workouts.map((w) => w.id);
+  const sets = await db.sets.where("workoutId").anyOf(workoutIds).toArray();
+  for (const s of sets) {
+    if (!countsAsMainSet(s)) continue;
+    const ex = getExerciseById(s.exerciseId);
+    if (!ex) continue;
+    if (!include.has(ex.category)) continue;
+    switch (ex.category) {
+      case "chest":
+      case "back":
+      case "legs":
+      case "arms":
+      case "shoulders":
+        out[ex.category] += 1;
+        break;
+      default:
+        break;
+    }
+  }
+  return out;
 }
 
 /** 直近 numWeeks 週の週次ボリューム（週の開始は日曜始まり） */
